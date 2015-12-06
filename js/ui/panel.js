@@ -1704,7 +1704,7 @@ Panel.prototype = {
 
         this._updatePanelVisibility();
 
-        Main.layoutManager._chrome.modifyActorParams(this.actor, { affectsStruts: this._autohideSettings == "false" });
+        Main.layoutManager.modifyActorParams(this.actor, { affectsStruts: this._autohideSettings == "false" });
     },
 
     /**

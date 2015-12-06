@@ -18,6 +18,14 @@ const DeskletManager = imports.ui.deskletManager;
 const STARTUP_ANIMATION_TIME = 0.5;
 const KEYBOARD_ANIMATION_TIME = 0.5;
 
+const defaultParams = {
+    visibleInFullscreen: false,
+    affectsStruts: false,
+    affectsInputRegion: true,
+    addToWindowgroup: false,
+    doNotAdd: false
+};
+
 function LayoutManager() {
     this._init.apply(this, arguments);
 }
@@ -31,7 +39,12 @@ LayoutManager.prototype = {
         this.hotCornerManager = null;
         this.edgeRight = null;
         this.edgeLeft = null;
-        this._chrome = new Chrome(this);
+
+        this._inOverview = false;
+        this._updateRegionIdle = 0;
+
+        this._trackedActors = [];
+
         this.enabledEdgeFlip = global.settings.get_boolean("enable-edge-flip");
         this.edgeFlipDelay = global.settings.get_int("edge-flip-delay");
 
@@ -45,11 +58,24 @@ LayoutManager.prototype = {
 
         global.settings.connect("changed::enable-edge-flip", Lang.bind(this, this._onEdgeFlipChanged));
         global.settings.connect("changed::edge-flip-delay", Lang.bind(this, this._onEdgeFlipChanged));
-        global.screen.connect('restacked', Lang.bind(this, this._windowsRestacked));
+        // Need to update struts on new workspaces when they are added
+        global.screen.connect('notify::n-workspaces',
+                              Lang.bind(this, this._queueUpdateRegions));
+        global.screen.connect('restacked',
+                              Lang.bind(this, this._windowsRestacked));
         global.screen.connect('monitors-changed',
                               Lang.bind(this, this._monitorsChanged));
         global.window_manager.connect('switch-workspace',
                                       Lang.bind(this, this._windowsRestacked));
+
+        this._screenSaverActive = false;
+        this._screenSaverProxy = new ScreenSaver.ScreenSaverProxy();
+        this._screenSaverProxy.connectSignal('ActiveChanged', Lang.bind(this, this._onScreenSaverActiveChanged));
+        this._screenSaverProxy.GetActiveRemote(Lang.bind(this,
+            function(result, err) {
+                if (!err)
+                    this._onScreenSaverActiveChanged(this._screenSaverProxy, result);
+            }));
     },
 
     _onEdgeFlipChanged: function(){
@@ -69,7 +95,10 @@ LayoutManager.prototype = {
     // Certain functions need to access other Main elements that do
     // not exist yet when the LayoutManager was constructed.
     init: function() {
-        this._chrome.init();
+        Main.overview.connect('showing',
+                              Lang.bind(this, this._overviewShowing));
+        Main.overview.connect('hidden',
+                              Lang.bind(this, this._overviewHidden));
         
         this.edgeRight = new EdgeFlip.EdgeFlipper(St.Side.RIGHT, Main.wm.actionFlipWorkspaceRight);
         this.edgeLeft = new EdgeFlip.EdgeFlipper(St.Side.LEFT, Main.wm.actionFlipWorkspaceLeft);
@@ -80,6 +109,24 @@ LayoutManager.prototype = {
         this.edgeLeft.delay = this.edgeFlipDelay;
 
         this.hotCornerManager = new HotCorner.HotCornerManager();
+    },
+
+    _overviewShowing: function() {
+        this._inOverview = true;
+        this._updateVisibility();
+        this._queueUpdateRegions();
+    },
+
+    _overviewHidden: function() {
+        this._inOverview = false;
+        this._updateVisibility();
+        this._queueUpdateRegions();
+    },
+
+    _onScreenSaverActiveChanged: function(proxy, screenSaverActive) {
+        this._screenSaverActive = screenSaverActive;
+        this._updateVisibility();
+        this._queueUpdateRegions();
     },
     
     _toggleExpo: function() {
@@ -130,13 +177,17 @@ LayoutManager.prototype = {
         this.keyboardBox.set_position(this.bottomMonitor.x,
                                       this.bottomMonitor.y + this.bottomMonitor.height);
         this.keyboardBox.set_size(this.bottomMonitor.width, -1);
-        this._chrome._queueUpdateRegions();
+        this._queueUpdateRegions();
     },
 
     _monitorsChanged: function() {
         this._updateMonitors();
         this._updateBoxes();
         this._updateHotCorners();
+        this._updateFullscreen();
+        this._updateVisibility();
+        this._queueUpdateRegions();
+
         this.emit('monitors-changed');
     },
 
@@ -178,7 +229,7 @@ LayoutManager.prototype = {
 
     get currentMonitor() {
         let index = global.screen.get_current_monitor();
-        return Main.layoutManager.monitors[index];
+        return this.monitors[index];
     },
 
     _prepareStartupAnimation: function() {
@@ -192,7 +243,7 @@ LayoutManager.prototype = {
 
         // We need to force an update of the regions now before we scale
         // the UI group to get the correct allocation for the struts.
-        this._chrome.updateRegions();
+        this._updateRegions();
 
         Main.panelManager.setPanelsOpacity(0);
 
@@ -212,7 +263,7 @@ LayoutManager.prototype = {
 
     _startupAnimation: function() {
         // Don't animate the strut
-        this._chrome.freezeUpdateRegions();
+        this._freezeUpdateRegions();
         Tweener.addTween(Main.uiGroup,
                          { scale_x: 1,
                            scale_y: 1,
@@ -232,7 +283,7 @@ LayoutManager.prototype = {
 
         this.keyboardBox.show();
         global.window_group.remove_clip();
-        this._chrome.thawUpdateRegions();
+        this._thawUpdateRegions();
     },
 
     showKeyboard: function () {
@@ -250,7 +301,7 @@ LayoutManager.prototype = {
     _showKeyboardComplete: function() {
         // Poke Chrome to update the input shape; it doesn't notice
         // anchor point changes
-        this._chrome.updateRegions();
+        this._updateRegions();
 
         this._keyboardHeightNotifyId = this.keyboardBox.connect('notify::height', Lang.bind(this, function () {
             this.keyboardBox.anchor_y = this.keyboardBox.height;
@@ -273,7 +324,7 @@ LayoutManager.prototype = {
     },
 
     _hideKeyboardComplete: function() {
-        this._chrome.updateRegions();
+        this._updateRegions();
     },
 
     // addChrome:
@@ -294,7 +345,8 @@ LayoutManager.prototype = {
     // If %visibleInFullscreen in @params is %true, the actor will be
     // visible even when a fullscreen window should be covering it.
     addChrome: function(actor, params) {
-        this._chrome.addActor(actor, params);
+        Main.uiGroup.add_actor(actor);
+        this._trackActor(actor, params);
     },
 
     // trackChrome:
@@ -311,100 +363,6 @@ LayoutManager.prototype = {
     // parent). By default, @actor has the same params as its chrome
     // ancestor.
     trackChrome: function(actor, params) {
-        this._chrome.trackActor(actor, params);
-    },
-
-    // untrackChrome:
-    // @actor: an actor previously tracked via trackChrome()
-    //
-    // Undoes the effect of trackChrome()
-    untrackChrome: function(actor) {
-        this._chrome.untrackActor(actor);
-    },
-
-    // removeChrome:
-    // @actor: a chrome actor
-    //
-    // Removes @actor from the chrome
-    removeChrome: function(actor) {
-        this._chrome.removeActor(actor);
-    },
-
-    findMonitorForActor: function(actor) {
-        return this._chrome.findMonitorForActor(actor);
-    },
-
-    isTrackingChrome: function(actor) {
-        return this._chrome._findActor(actor) != -1;
-    }
-};
-Signals.addSignalMethods(LayoutManager.prototype);
-
-
-
-// This manages Cinnamon "chrome"; the UI that's visible in the
-// normal mode (ie, outside the Overview), that surrounds the main
-// workspace content.
-
-const defaultParams = {
-    visibleInFullscreen: false,
-    affectsStruts: false,
-    affectsInputRegion: true,
-    addToWindowgroup: false,
-    doNotAdd: false
-};
-
-function Chrome() {
-    this._init.apply(this, arguments);
-}
-
-Chrome.prototype = {
-    _init: function(layoutManager) {
-        this._layoutManager = layoutManager;
-
-        this._monitors = [];
-        this._inOverview = false;
-        this._updateRegionIdle = 0;
-        this._freezeUpdateCount = 0;
-
-        this._trackedActors = [];
-
-        this._layoutManager.connect('monitors-changed',
-                                    Lang.bind(this, this._relayout));
-        global.screen.connect('restacked',
-                              Lang.bind(this, this._windowsRestacked));
-
-        // Need to update struts on new workspaces when they are added
-        global.screen.connect('notify::n-workspaces',
-                              Lang.bind(this, this._queueUpdateRegions));
-
-        this._screenSaverActive = false;
-        this._screenSaverProxy = new ScreenSaver.ScreenSaverProxy();
-        this._screenSaverProxy.connectSignal('ActiveChanged', Lang.bind(this, this._onScreenSaverActiveChanged));
-        this._screenSaverProxy.GetActiveRemote(Lang.bind(this,
-            function(result, err) {
-                if (!err)
-                    this._onScreenSaverActiveChanged(this._screenSaverProxy, result);
-            }));
-
-        this._relayout();
-    },
-
-    init: function() {
-        Main.overview.connect('showing',
-                              Lang.bind(this, this._overviewShowing));
-        Main.overview.connect('hidden',
-                              Lang.bind(this, this._overviewHidden));
-    },
-
-    addActor: function(actor, params) {
-        let actorData = Params.parse(params, defaultParams);
-        if (actorData.addToWindowgroup) global.window_group.add_actor(actor);
-        else if (!actorData.doNotAdd) Main.uiGroup.add_actor(actor);
-        this._trackActor(actor, params);
-    },
-
-    trackActor: function(actor, params) {
         let ancestor = actor.get_parent();
         let index = this._findActor(ancestor);
         while (ancestor && index == -1) {
@@ -427,11 +385,19 @@ Chrome.prototype = {
         this._trackActor(actor, params);
     },
 
-    untrackActor: function(actor) {
+    // untrackChrome:
+    // @actor: an actor previously tracked via trackChrome()
+    //
+    // Undoes the effect of trackChrome()
+    untrackChrome: function(actor) {
         this._untrackActor(actor);
     },
 
-    removeActor: function(actor) {
+    // removeChrome:
+    // @actor: a chrome actor
+    //
+    // Removes @actor from the chrome
+    removeChrome: function(actor) {
         let i = this._findActor(actor);
 
         if (i == -1)
@@ -532,45 +498,19 @@ Chrome.prototype = {
         }
     },
 
-    _overviewShowing: function() {
-        this._inOverview = true;
-        this._updateVisibility();
-        this._queueUpdateRegions();
-    },
-
-    _overviewHidden: function() {
-        this._inOverview = false;
-        this._updateVisibility();
-        this._queueUpdateRegions();
-    },
-
-    _relayout: function() {
-        this._monitors = this._layoutManager.monitors;
-        this._primaryMonitor = this._layoutManager.primaryMonitor;
-        this._updateFullscreen();
-        this._updateVisibility();
-        this._queueUpdateRegions();
-    },
-
-    _onScreenSaverActiveChanged: function(proxy, screenSaverActive) {
-        this._screenSaverActive = screenSaverActive;
-        this._updateVisibility();
-        this._queueUpdateRegions();
-    },
-
     _findMonitorForRect: function(x, y, w, h) {
         // First look at what monitor the center of the rectangle is at
         let cx = x + w/2;
         let cy = y + h/2;
-        for (let i = 0; i < this._monitors.length; i++) {
-            let monitor = this._monitors[i];
+        for (let i = 0; i < this.monitors.length; i++) {
+            let monitor = this.monitors[i];
             if (cx >= monitor.x && cx < monitor.x + monitor.width &&
                 cy >= monitor.y && cy < monitor.y + monitor.height)
                 return monitor;
         }
         // If the center is not on a monitor, return the first overlapping monitor
-        for (let i = 0; i < this._monitors.length; i++) {
-            let monitor = this._monitors[i];
+        for (let i = 0; i < this.monitors.length; i++) {
+            let monitor = this.monitors[i];
             if (x + w > monitor.x && x < monitor.x + monitor.width &&
                 y + h > monitor.y && y < monitor.y + monitor.height)
                 return monitor;
@@ -591,22 +531,22 @@ Chrome.prototype = {
         let monitor = this._findMonitorForRect(x, y, w, h);
         if (monitor)
             return monitor;
-        return this._primaryMonitor; // Not on any monitor, pretend its on the primary
+        return this.primaryMonitor; // Not on any monitor, pretend its on the primary
     },
 
     _queueUpdateRegions: function() {
         if (!this._updateRegionIdle && !this._freezeUpdateCount)
-            this._updateRegionIdle = Mainloop.idle_add(Lang.bind(this, this.updateRegions),
+            this._updateRegionIdle = Mainloop.idle_add(Lang.bind(this, this._updateRegions),
                                                        Meta.PRIORITY_BEFORE_REDRAW);
     },
 
-    freezeUpdateRegions: function() {
+    _freezeUpdateRegions: function() {
         if (this._updateRegionIdle)
-            this.updateRegions();
+            this._updateRegions();
         this._freezeUpdateCount++;
     },
 
-    thawUpdateRegions: function() {
+    _thawUpdateRegions: function() {
         this._freezeUpdateCount = --this._freezeUpdateCount >= 0 ? this.freezeUpdateCount : 0;
         this._queueUpdateRegions();
     },
@@ -615,8 +555,8 @@ Chrome.prototype = {
         let windows = Main.getWindowActorsForWorkspace(global.screen.get_active_workspace_index());
 
         // Reset all monitors to not fullscreen
-        for (let i = 0; i < this._monitors.length; i++)
-            this._monitors[i].inFullscreen = false;
+        for (let i = 0; i < this.monitors.length; i++)
+            this.monitors[i].inFullscreen = false;
 
         // Ordinary chrome should be visible unless there is a window
         // with layer FULLSCREEN, or a window with layer
@@ -651,8 +591,8 @@ Chrome.prototype = {
                      window.height == global.screen_height);
 
                 if (isScreenSized) {
-                    for (let i = 0; i < this._monitors.length; i++)
-                        this._monitors[i].inFullscreen = true;
+                    for (let i = 0; i < this.monitors.length; i++)
+                        this.monitors[i].inFullscreen = true;
                 }
 
                 // Or whether it is monitor sized
@@ -670,14 +610,14 @@ Chrome.prototype = {
 
     _windowsRestacked: function() {
         let wasInFullscreen = [];
-        for (let i = 0; i < this._monitors.length; i++)
-            wasInFullscreen[i] = this._monitors[i].inFullscreen;
+        for (let i = 0; i < this.monitors.length; i++)
+            wasInFullscreen[i] = this.monitors[i].inFullscreen;
 
         this._updateFullscreen();
 
         let changed = false;
         for (let i = 0; i < wasInFullscreen.length; i++) {
-            if (wasInFullscreen[i] != this._monitors[i].inFullscreen) {
+            if (wasInFullscreen[i] != this.monitors[i].inFullscreen) {
                 changed = true;
                 break;
             }
@@ -688,7 +628,7 @@ Chrome.prototype = {
         }
     },
 
-    updateRegions: function() {
+    _updateRegions: function() {
         let rects = [], struts = [], i;
 
         if (this._updateRegionIdle) {
@@ -787,3 +727,4 @@ Chrome.prototype = {
         return false;
     }
 };
+Signals.addSignalMethods(LayoutManager.prototype);
