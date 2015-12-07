@@ -7,6 +7,7 @@ const Meta = imports.gi.Meta;
 const Cinnamon = imports.gi.Cinnamon;
 const Signals = imports.signals;
 const St = imports.gi.St;
+const Background = imports.ui.background;
 const DND = imports.ui.dnd;
 const Main = imports.ui.main;
 const Tweener = imports.ui.tweener;
@@ -373,8 +374,7 @@ ExpoWorkspaceThumbnail.prototype = {
         this.background = new Clutter.Group();
         this.contents.add_actor(this.background);
 
-        let desktopBackground = Meta.BackgroundActor.new_for_screen(global.screen);
-        this.background.add_actor(desktopBackground);
+        this._createBackground();
 
         let backgroundShade = new St.Bin({style_class: 'workspace-overview-background-shade'});
         this.background.add_actor(backgroundShade);
@@ -434,6 +434,12 @@ ExpoWorkspaceThumbnail.prototype = {
         this.restack();
         this._slidePosition = 0; // Fully slid in
         this.setOverviewMode(forceOverviewMode);
+    },
+
+    _createBackground: function() {
+        this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
+                                                             container: this.contents,
+                                                             effects: Meta.BackgroundEffects.NONE });
     },
 
     setOverviewMode: function(turnOn) {
@@ -641,6 +647,8 @@ ExpoWorkspaceThumbnail.prototype = {
     destroy : function() {            
         this.actor.destroy();        
         this.frame.destroy();
+        this._bgManager.destroy();
+        this._bgManager = null;
     },
 
     onDestroy: function(actor) {

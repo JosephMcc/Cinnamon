@@ -5,8 +5,10 @@ const GLib = imports.gi.GLib;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
+const Cinnamon = imports.gi.Cinnamon;
 const Signals = imports.signals;
 const St = imports.gi.St;
+const Background = imports.ui.background;
 const Main = imports.ui.main;
 const Params = imports.misc.params;
 const ScreenSaver = imports.misc.screenSaver;
@@ -17,6 +19,8 @@ const DeskletManager = imports.ui.deskletManager;
 
 const STARTUP_ANIMATION_TIME = 0.5;
 const KEYBOARD_ANIMATION_TIME = 0.5;
+const BACKGROUND_FADE_ANIMATION_TIME = 1.0;
+const DEFAULT_BACKGROUND_COLOR = Clutter.Color.from_pixel(0x000000ff);
 
 const defaultParams = {
     visibleInFullscreen: false,
@@ -44,6 +48,55 @@ LayoutManager.prototype = {
         this._updateRegionIdle = 0;
 
         this._trackedActors = [];
+        this._startingUp = true;
+
+        // The stage is always covered so Clutter doesn't need to clear it; however
+        // the color is used as the default contents for the Muffin root background
+        // actor so set it anyways.
+        global.stage.color = DEFAULT_BACKGROUND_COLOR;
+        global.stage.no_clear_hint = false;
+
+        // Set up stage hierarchy to group all UI actors under one container.
+        this.uiGroup = new Cinnamon.GenericContainer({ name: 'uiGroup' });
+        this.uiGroup.connect('allocate',
+                        function (actor, box, flags) {
+                            let children = actor.get_children();
+                            for (let i = 0; i < children.length; i++)
+                                children[i].allocate_preferred_size(flags);
+                        });
+        this.uiGroup.connect('get-preferred-width',
+                        function(actor, forHeight, alloc) {
+                            let width = global.stage.width;
+                            [alloc.min_size, alloc.natural_size] = [width, width];
+                        });
+        this.uiGroup.connect('get-preferred-height',
+                        function(actor, forWidth, alloc) {
+                            let height = global.stage.height;
+                            [alloc.min_size, alloc.natural_size] = [height, height];
+                        });
+
+        // global.reparentActor(global.background_actor, this.uiGroup);
+        // global.background_actor.hide();
+        global.reparentActor(global.bottom_window_group, this.uiGroup);
+        this.uiGroup.add_actor(Main.deskletContainer.actor);
+        global.reparentActor(global.window_group, this.uiGroup);
+        // global.reparentActor(global.bottom_window_group, global.window_group);
+        // global.bottom_window_group.lower_bottom();
+        global.reparentActor(global.overlay_group, this.uiGroup);
+
+        global.stage.add_child(this.uiGroup);
+
+        global.reparentActor(global.top_window_group, global.stage);
+
+        this._backgroundGroup = new Meta.BackgroundGroup();
+        // global.window_group.add_child(this._backgroundGroup);
+        this.uiGroup.add_actor(this._backgroundGroup);
+        this._backgroundGroup.lower_bottom();
+        this._bgManagers = [];
+
+        // global.reparentActor(global.bottom_window_group, global.window_group);
+        // global.window_group.add_actor(Main.deskletContainer.actor);
+        // global.reparentActor(global.overlay_group, this.uiGroup);
 
         this.enabledEdgeFlip = global.settings.get_boolean("enable-edge-flip");
         this.edgeFlipDelay = global.settings.get_int("edge-flip-delay");
@@ -87,9 +140,9 @@ LayoutManager.prototype = {
         this.edgeLeft.delay = this.edgeFlipDelay;
     },
 
-    _windowsRestacked: function() {
-        this._chrome.updateRegions();
-    },
+    // _windowsRestacked: function() {
+    //     this._chrome.updateRegions();
+    // },
 
     // This is called by Main after everything else is constructed;
     // Certain functions need to access other Main elements that do
@@ -171,6 +224,52 @@ LayoutManager.prototype = {
             this.hotCornerManager.updatePosition(this.primaryMonitor, this.bottomMonitor);
     },
 
+    _createBackground: function(monitorIndex) {
+        let bgManager = new Background.BackgroundManager({ container: this._backgroundGroup,
+                                                           layoutManager: this,
+                                                           monitorIndex: monitorIndex });
+
+        this._bgManagers[monitorIndex] = bgManager;
+
+        return bgManager.background;
+    },
+
+    _createSecondaryBackgrounds: function() {
+        for (let i = 0; i < this.monitors.length; i++) {
+            if (i != this.primaryIndex) {
+                let background = this._createBackground(i);
+
+                background.actor.opacity = 0;
+                Tweener.addTween(background.actor,
+                                 { opacity: 255,
+                                   time: BACKGROUND_FADE_ANIMATION_TIME,
+                                   transition: 'easeOutQuad' });
+            }
+        }
+    },
+
+    _createPrimaryBackground: function() {
+        this._createBackground(this.primaryIndex);
+    },
+
+    _updateBackgrounds: function() {
+        let i;
+        for (i = 0; i < this._bgManagers.length; i++)
+            this._bgManagers[i].destroy();
+
+        this._bgManagers = [];
+
+        // if (Main.sessionMode.isGreeter)
+        //     return;
+
+        if (this._startingUp)
+            return;
+
+        for (let i = 0; i < this.monitors.length; i++) {
+            this._createBackground(i);
+        }
+    },
+
     _updateBoxes: function() {
         this._updateHotCorners();
 
@@ -184,6 +283,7 @@ LayoutManager.prototype = {
         this._updateMonitors();
         this._updateBoxes();
         this._updateHotCorners();
+        this._updateBackgrounds();
         this._updateFullscreen();
         this._updateVisibility();
         this._queueUpdateRegions();
@@ -253,18 +353,19 @@ LayoutManager.prototype = {
         let x = monitor.x + monitor.width / 2.0;
         let y = monitor.y + monitor.height / 2.0;
 
-        Main.uiGroup.set_pivot_point(x / global.screen_width,
+        this.uiGroup.set_pivot_point(x / global.screen_width,
                                      y / global.screen_height);
-        Main.uiGroup.scale_x = Main.uiGroup.scale_y = 0.75;
-        Main.uiGroup.opacity = 0;
-        global.background_actor.show();
+        this.uiGroup.scale_x = this.uiGroup.scale_y = 0.5;
+        this.uiGroup.opacity = 0;
         global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
     },
 
     _startupAnimation: function() {
+        global.stage.show();
         // Don't animate the strut
         this._freezeUpdateRegions();
-        Tweener.addTween(Main.uiGroup,
+        this._createPrimaryBackground();
+        Tweener.addTween(this.uiGroup,
                          { scale_x: 1,
                            scale_y: 1,
                            opacity: 255,
@@ -278,6 +379,9 @@ LayoutManager.prototype = {
         global.stage.no_clear_hint = true;
         this._coverPane.destroy();
         this._coverPane = null;
+
+        this._createSecondaryBackgrounds();
+        this._startingUp = false;
 
         Main.panelManager.setPanelsOpacity(255);
 
@@ -345,7 +449,7 @@ LayoutManager.prototype = {
     // If %visibleInFullscreen in @params is %true, the actor will be
     // visible even when a fullscreen window should be covering it.
     addChrome: function(actor, params) {
-        Main.uiGroup.add_actor(actor);
+        this.uiGroup.add_actor(actor);
         this._trackActor(actor, params);
     },
 
@@ -404,8 +508,11 @@ LayoutManager.prototype = {
             return;
         let actorData = this._trackedActors[i];
 
-        if (actorData.addToWindowgroup) global.window_group.remove_actor(actor);
-        else Main.uiGroup.remove_actor(actor);
+        if (actorData.addToWindowgroup)
+            global.window_group.remove_actor(actor);
+        else
+            this.uiGroup.remove_actor(actor);
+
         this._untrackActor(actor);
     },
 
@@ -434,8 +541,10 @@ LayoutManager.prototype = {
 
         let actorData = Params.parse(params, defaultParams);
         actorData.actor = actor;
-        if (actorData.addToWindowgroup) actorData.isToplevel = actor.get_parent() == global.window_group;
-        else actorData.isToplevel = actor.get_parent() == Main.uiGroup;
+        if (actorData.addToWindowgroup)
+            actorData.isToplevel = actor.get_parent() == global.window_group;
+        else
+            actorData.isToplevel = actor.get_parent() == this.uiGroup;
         actorData.visibleId = actor.connect('notify::visible',
                                             Lang.bind(this, this._queueUpdateRegions));
         actorData.allocationId = actor.connect('notify::allocation',
@@ -471,11 +580,13 @@ LayoutManager.prototype = {
         let actorData = this._trackedActors[i];
 
         let newParent = actor.get_parent();
-        if (!newParent)
+        if (!newParent) {
             this._untrackActor(actor);
-        else{
-            if (actorData.addToWindowgroup) actorData.isToplevel = (newParent == global.window_group);
-            else actorData.isToplevel = (newParent == Main.uiGroup);
+        } else {
+            if (actorData.addToWindowgroup)
+                actorData.isToplevel = (newParent == global.window_group);
+            else
+                actorData.isToplevel = (newParent == this.uiGroup);
         }
     },
 
@@ -494,7 +605,7 @@ LayoutManager.prototype = {
                 visible = false;
             else
                 visible = true;
-            Main.uiGroup.set_skip_paint(actorData.actor, !visible);
+            this.uiGroup.set_skip_paint(actorData.actor, !visible);
         }
     },
 
@@ -573,38 +684,47 @@ LayoutManager.prototype = {
         for (let i = windows.length - 1; i > -1; i--) {
             let window = windows[i];
             let metaWindow = window.get_meta_window();
+            let layer = metaWindow.get_layer();
 
             // Skip minimized windows
-            if (!window.showing_on_its_workspace())
+            if (!metaWindow.showing_on_its_workspace())
                 continue;
 
-            if (metaWindow.get_layer() == Meta.StackLayer.FULLSCREEN || metaWindow.is_fullscreen()) {
-                let monitor = this._findMonitorForWindow(window);
-                if (monitor)
-                    monitor.inFullscreen = true;
-            }
-            if (metaWindow.is_override_redirect()) {
-                // Check whether the window is screen sized
-                let isScreenSized =
-                    (window.x == 0 && window.y == 0 &&
-                     window.width == global.screen_width &&
-                     window.height == global.screen_height);
-
-                if (isScreenSized) {
+            if (layer == Meta.StackLayer.FULLSCREEN ||
+               (layer == Meta.StackLayer.OVERRIDE_REDIRECT && metaWindow.is_monitor_sized())) {
+                if (metaWindow.is_screen_sized()) {
                     for (let i = 0; i < this.monitors.length; i++)
                         this.monitors[i].inFullscreen = true;
+                } else {
+                    let monitors = metaWindow.get_all_monitors();
+                    for (let i = 0; i < monitors.length; i++) {
+                        let index = monitors[i];
+                        this.monitors[index].inFullscreen = true;
+                    }
                 }
+            }
+            // if (metaWindow.is_override_redirect()) {
+            //     // Check whether the window is screen sized
+            //     let isScreenSized =
+            //         (window.x == 0 && window.y == 0 &&
+            //          window.width == global.screen_width &&
+            //          window.height == global.screen_height);
 
-                // Or whether it is monitor sized
-                let monitor = this._findMonitorForWindow(window);
-                if (monitor &&
-                    window.x <= monitor.x &&
-                    window.x + window.width >= monitor.x + monitor.width &&
-                    window.y <= monitor.y &&
-                    window.y + window.height >= monitor.y + monitor.height)
-                    monitor.inFullscreen = true;
-            } else
-                break;
+            //     if (isScreenSized) {
+            //         for (let i = 0; i < this.monitors.length; i++)
+            //             this.monitors[i].inFullscreen = true;
+            //     }
+
+            //     // Or whether it is monitor sized
+            //     let monitor = this._findMonitorForWindow(window);
+            //     if (monitor &&
+            //         window.x <= monitor.x &&
+            //         window.x + window.width >= monitor.x + monitor.width &&
+            //         window.y <= monitor.y &&
+            //         window.y + window.height >= monitor.y + monitor.height)
+            //         monitor.inFullscreen = true;
+            // } else
+            //     break;
         }
     },
 
@@ -651,7 +771,7 @@ LayoutManager.prototype = {
                 let rect = new Meta.Rectangle({ x: x, y: y, width: w, height: h});
 
                 if (actorData.actor.get_paint_visibility() &&
-                    !Main.uiGroup.get_skip_paint(actorData.actor))
+                    !this.uiGroup.get_skip_paint(actorData.actor))
                     rects.push(rect);
             }
 

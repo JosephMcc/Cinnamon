@@ -118,8 +118,8 @@ const Keybindings = imports.ui.keybindings;
 const Settings = imports.ui.settings;
 const Systray = imports.ui.systray;
 
-const DEFAULT_BACKGROUND_COLOR = new Clutter.Color();
-DEFAULT_BACKGROUND_COLOR.from_pixel(0x2266bbff);
+// const DEFAULT_BACKGROUND_COLOR = new Clutter.Color();
+// DEFAULT_BACKGROUND_COLOR.from_pixel(0x2266bbff);
 
 const LAYOUT_TRADITIONAL = "traditional";
 const LAYOUT_FLIPPED = "flipped";
@@ -310,8 +310,8 @@ function start() {
     // The stage is always covered so Clutter doesn't need to clear it; however
     // the color is used as the default contents for the Muffin root background
     // actor so set it anyways.
-    global.stage.color = DEFAULT_BACKGROUND_COLOR;
-    global.stage.no_clear_hint = true;
+    // global.stage.color = DEFAULT_BACKGROUND_COLOR;
+    // global.stage.no_clear_hint = true;
     
     Gtk.IconTheme.get_default().append_search_path("/usr/share/cinnamon/icons/");
     _defaultCssStylesheet = global.datadir + '/theme/cinnamon.css';    
@@ -329,43 +329,48 @@ function start() {
     deskletContainer = new DeskletManager.DeskletContainer();
 
     // Set up stage hierarchy to group all UI actors under one container.
-    uiGroup = new Cinnamon.GenericContainer({ name: 'uiGroup' });
-    uiGroup.connect('allocate',
-                    function (actor, box, flags) {
-                        let children = uiGroup.get_children();
-                        for (let i = 0; i < children.length; i++)
-                            children[i].allocate_preferred_size(flags);
-                    });
-    uiGroup.connect('get-preferred-width',
-                    function(actor, forHeight, alloc) {
-                        let width = global.stage.width;
-                        [alloc.min_size, alloc.natural_size] = [width, width];
-                    });
-    uiGroup.connect('get-preferred-height',
-                    function(actor, forWidth, alloc) {
-                        let height = global.stage.height;
-                        [alloc.min_size, alloc.natural_size] = [height, height];
-                    });
+    // uiGroup = new Cinnamon.GenericContainer({ name: 'uiGroup' });
+    // uiGroup.connect('allocate',
+    //                 function (actor, box, flags) {
+    //                     let children = uiGroup.get_children();
+    //                     for (let i = 0; i < children.length; i++)
+    //                         children[i].allocate_preferred_size(flags);
+    //                 });
+    // uiGroup.connect('get-preferred-width',
+    //                 function(actor, forHeight, alloc) {
+    //                     let width = global.stage.width;
+    //                     [alloc.min_size, alloc.natural_size] = [width, width];
+    //                 });
+    // uiGroup.connect('get-preferred-height',
+    //                 function(actor, forWidth, alloc) {
+    //                     let height = global.stage.height;
+    //                     [alloc.min_size, alloc.natural_size] = [height, height];
+    //                 });
 
-    global.reparentActor(global.background_actor, uiGroup);
-    global.background_actor.hide();
-    global.reparentActor(global.bottom_window_group, uiGroup);
-    uiGroup.add_actor(deskletContainer.actor);
-    global.reparentActor(global.window_group, uiGroup);
-    global.reparentActor(global.overlay_group, uiGroup);
+    // global.reparentActor(global.background_actor, uiGroup);
+    // global.background_actor.hide();
+    // global.reparentActor(global.bottom_window_group, uiGroup);
+    // uiGroup.add_actor(deskletContainer.actor);
+    // global.reparentActor(global.window_group, uiGroup);
+    // global.reparentActor(global.overlay_group, uiGroup);
 
-    let stage_bg = new Clutter.Actor();
-    let constraint = new Clutter.BindConstraint({ source: global.stage, coordinate: Clutter.BindCoordinate.ALL, offset: 0 })
-    stage_bg.add_constraint(constraint);
-    stage_bg.set_background_color(new Clutter.Color({red: 0, green: 0, blue: 0, alpha: 255}));
-    stage_bg.set_size(global.screen_width, global.screen_height);
-    global.stage.add_actor(stage_bg);
+    // let stage_bg = new Clutter.Actor();
+    // let constraint = new Clutter.BindConstraint({ source: global.stage, coordinate: Clutter.BindCoordinate.ALL, offset: 0 })
+    // stage_bg.add_constraint(constraint);
+    // stage_bg.set_background_color(new Clutter.Color({red: 0, green: 0, blue: 0, alpha: 255}));
+    // stage_bg.set_size(global.screen_width, global.screen_height);
+    // global.stage.add_actor(stage_bg);
 
-    stage_bg.add_actor(uiGroup);
+    // stage_bg.add_actor(uiGroup);
 
-    global.reparentActor(global.top_window_group, global.stage);
+    // global.reparentActor(global.top_window_group, global.stage);
 
+    // Setup the stage hierarchy early
     layoutManager = new Layout.LayoutManager();
+    // Various parts of the codebase still refers to Main.uiGroup
+    // instead using the layoutManager.  This keeps that code
+    // working until it's updated.
+    uiGroup = layoutManager.uiGroup;
 
     Panel.checkPanelUpgrade();
 
