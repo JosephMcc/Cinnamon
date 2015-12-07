@@ -13,6 +13,7 @@ const Main = imports.ui.main;
 const MessageTray = imports.ui.messageTray;
 const Tweener = imports.ui.tweener;
 const WorkspacesView = imports.ui.workspacesView;
+const Background = imports.ui.background;
 
 // Time for initial animation going into Overview mode
 const ANIMATION_TIME = 0.25;
@@ -255,8 +256,7 @@ Overview.prototype = {
         this._background.hide();
         global.overlay_group.add_actor(this._background);
 
-        this._desktopBackground = Meta.BackgroundActor.new_for_screen(global.screen);
-        this._background.add_actor(this._desktopBackground);
+        this._createBackground();
 
         this._backgroundShade = new St.Bin({style_class: 'workspace-overview-background-shade'});
         this._background.add_actor(this._backgroundShade);
@@ -305,6 +305,12 @@ Overview.prototype = {
         this._coverPane.raise_top();
         this._coverPane.show();
         this.emit('showing');
+    },
+
+    _createBackground: function() {
+        this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
+                                                             container: this._background,
+                                                             effects: Meta.BackgroundEffects.NONE });
     },
 
     // showTemporarily:
@@ -435,6 +441,8 @@ Overview.prototype = {
         this._coverPane.destroy();
         global.overlay_group.remove_actor(this._background);
         this._background.destroy();
+        this._bgManager.destroy();
+        this._bgManager = null;
 
         // Re-enable unredirection
         Meta.enable_unredirect_for_screen(global.screen);
@@ -457,7 +465,7 @@ Overview.prototype = {
             this._animateVisible();
 
         this._syncInputMode();
-        Main.layoutManager._chrome.updateRegions();
+        Main.layoutManager._updateRegions();
     }
 };
 Signals.addSignalMethods(Overview.prototype);

@@ -40,9 +40,14 @@ AppSwitcher3D.prototype = {
         this._icon = null;
         this._lastTime = 0;
 
-        this._background = Meta.BackgroundActor.new_for_screen(global.screen);
-        this._background.hide();
-        global.overlay_group.add_actor(this._background);
+        // this._background = Meta.BackgroundActor.new_for_screen(global.screen);
+        // this._background.hide();
+        // global.overlay_group.add_actor(this._background);
+
+        this._backgroundGroup = new Meta.BackgroundGroup();
+        global.overlay_group.add_child(this._backgroundGroup);
+        this._backgroundGroup.hide();
+        this._bgManagers = [];
 
         // create a container for all our widgets
         this.actor = new St.Group({ visible: true, reactive: true, });
