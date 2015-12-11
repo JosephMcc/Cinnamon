@@ -641,6 +641,37 @@ Background.prototype = {
 };
 Signals.addSignalMethods(Background.prototype);
 
+function SystemBackground() {
+    this._init();
+}
+// const SystemBackground = new Lang.Class({
+//     Name: 'SystemBackground',
+SystemBackground.prototype = {
+    _init: function() {
+        this._cache = getBackgroundCache();
+        this.actor = new Meta.BackgroundActor();
+
+        this._cache.getImageContent({ style: CDesktopEnums.BackgroundStyle.WALLPAPER,
+                                      filename: global.datadir + '/theme/noise-texture.png',
+                                      effects: Meta.BackgroundEffects.NONE,
+                                      onFinished: Lang.bind(this, function(content) {
+                                          this.actor.content = content;
+                                          this.emit('loaded');
+                                      })
+                                    });
+
+        this.actor.connect('destroy', Lang.bind(this, this._onDestroy));
+    },
+
+    _onDestroy: function() {
+        let content = this.actor.content;
+
+        if (content)
+            this._cache.removeImageContent(content);
+    }
+};
+Signals.addSignalMethods(SystemBackground.prototype);
+
 function Animation(params) {
     this._init(params);
 }

@@ -382,9 +382,9 @@ function start() {
                        !GLib.getenv('CINNAMON_SOFTWARE_RENDERING') &&
                        !GLib.getenv('CINNAMON_2D');
 
-    if (do_animation) {
-        layoutManager._prepareStartupAnimation();
-    }
+    // if (do_animation) {
+    //     layoutManager._prepareStartupAnimation();
+    // }
 
     let pointerTracker = new PointerTracker.PointerTracker();
     pointerTracker.setPosition(layoutManager.primaryMonitor.x + layoutManager.primaryMonitor.width/2,
@@ -417,6 +417,7 @@ function start() {
     dynamicWorkspaces = false; // This should be configurable
     
     layoutManager.init();
+    
     keyboard.init();
     overview.init();
     expo.init();
@@ -477,18 +478,18 @@ function start() {
     // until the event loop is uncontended and idle.
     // This helps to prevent us from running the animation
     // when the system is bogged down
-    if (do_animation) {
-        let id = GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
-            if (do_login_sound)
-                soundManager.play_once_per_session('login');
-            layoutManager._startupAnimation();
-            return GLib.SOURCE_REMOVE;
-        }));
-    } else {
-        global.background_actor.show();
-        if (do_login_sound)
-            soundManager.play_once_per_session('login');
-    }
+    // if (do_animation) {
+    //     let id = GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
+    //         if (do_login_sound)
+    //             soundManager.play_once_per_session('login');
+    //         layoutManager.startupAnimation();
+    //         return GLib.SOURCE_REMOVE;
+    //     }));
+    // } else {
+    //     global.background_actor.show();
+    //     if (do_login_sound)
+    //         soundManager.play_once_per_session('login');
+    // }
 
     global.connect('shutdown', do_shutdown_sequence);
 
