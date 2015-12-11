@@ -33,6 +33,22 @@ function isPopupMetaWindow(actor) {
     }
 }
 
+const Monitor = new Lang.Class({
+    Name: 'Monitor',
+
+    _init: function(index, geometry) {
+        this.index = index;
+        this.x = geometry.x;
+        this.y = geometry.y;
+        this.width = geometry.width;
+        this.height = geometry.height;
+    },
+
+    get inFullscreen() {
+        return global.screen.get_monitor_in_fullscreen(this.index);
+    }
+})
+
 const defaultParams = {
     visibleInFullscreen: false,
     affectsStruts: false,
@@ -128,8 +144,6 @@ LayoutManager.prototype = {
         this._backgroundGroup.lower_bottom();
         this._bgManagers = [];
 
-        this._monitorsChanged();
-
         global.settings.connect("changed::enable-edge-flip", Lang.bind(this, this._onEdgeFlipChanged));
         global.settings.connect("changed::edge-flip-delay", Lang.bind(this, this._onEdgeFlipChanged));
         // Need to update struts on new workspaces when they are added
@@ -152,6 +166,7 @@ LayoutManager.prototype = {
                 if (!err)
                     this._onScreenSaverActiveChanged(this._screenSaverProxy, result);
             }));
+        this._monitorsChanged();
     },
 
     _onEdgeFlipChanged: function(){
@@ -185,6 +200,7 @@ LayoutManager.prototype = {
         this.edgeLeft.delay = this.edgeFlipDelay;
 
         this.hotCornerManager = new HotCorner.HotCornerManager();
+        this._loadBackground();
     },
 
     _overviewShowing: function() {
@@ -222,7 +238,7 @@ LayoutManager.prototype = {
         this.monitors = [];
         let nMonitors = screen.get_n_monitors();
         for (let i = 0; i < nMonitors; i++)
-            this.monitors.push(screen.get_monitor_geometry(i));
+            this.monitors.push(new Monitor(i, screen.get_monitor_geometry(i)));
 
         if (nMonitors == 1) {
             this.primaryIndex = this.bottomIndex = 0;
@@ -247,21 +263,19 @@ LayoutManager.prototype = {
             this.hotCornerManager.updatePosition(this.primaryMonitor, this.bottomMonitor);
     },
 
-    _createBackground: function(monitorIndex) {
+    _createBackgroundManager: function(monitorIndex) {
         let bgManager = new Background.BackgroundManager({ container: this._backgroundGroup,
                                                            layoutManager: this,
                                                            monitorIndex: monitorIndex });
 
-        this._bgManagers[monitorIndex] = bgManager;
-
-        return bgManager.background;
+        return bgManager;
     },
 
-    _createSecondaryBackgrounds: function() {
+    _showSecondaryBackgrounds: function() {
         for (let i = 0; i < this.monitors.length; i++) {
             if (i != this.primaryIndex) {
-                let background = this._createBackground(i);
-
+                let background = this._bgManagers[i].background;
+                background.actor.show();
                 background.actor.opacity = 0;
                 Tweener.addTween(background.actor,
                                  { opacity: 255,
@@ -271,10 +285,6 @@ LayoutManager.prototype = {
         }
     },
 
-    _createPrimaryBackground: function() {
-        this._createBackground(this.primaryIndex);
-    },
-
     _updateBackgrounds: function() {
         let i;
         for (i = 0; i < this._bgManagers.length; i++)
@@ -282,14 +292,12 @@ LayoutManager.prototype = {
 
         this._bgManagers = [];
 
-        // if (Main.sessionMode.isGreeter)
-        //     return;
-
-        if (this._startingUp)
-            return;
-
         for (let i = 0; i < this.monitors.length; i++) {
-            this._createBackground(i);
+            let bgManager = this._createBackgroundManager(i);
+            this._bgManagers.push(bgManager);
+
+            if (i != this.primaryIndex && this._startingUp)
+                bgManager.background.actor.hide();
         }
     },
 
@@ -355,6 +363,25 @@ LayoutManager.prototype = {
         return this.monitors[index];
     },
 
+    _loadBackground: function() {
+        this._systemBackground = new Background.SystemBackground();
+        this._systemBackground.actor.hide();
+
+        global.stage.insert_child_below(this._systemBackground.actor, null);
+
+        let constraint = new Clutter.BindConstraint({ source: global.stage,
+                                                      coordinate: Clutter.BindCoordinate.ALL });
+        this._systemBackground.actor.add_constraint(constraint);
+
+        let signalId = this._systemBackground.connect('loaded', Lang.bind(this, function() {
+            this._systemBackground.disconnect(signalId);
+            this._systemBackground.actor.show();
+            global.stage.show();
+
+            this._prepareStartupAnimation();
+        }));
+    },
+
     _prepareStartupAnimation: function() {
         // During the initial transition, add a simple actor to block all events,
         // so they don't get delivered to X11 windows that have been transformed.
@@ -363,6 +390,8 @@ LayoutManager.prototype = {
                                               height: global.screen_height,
                                               reactive: true });
         this.addChrome(this._coverPane);
+
+        this._updateBackgrounds();
 
         // We need to force an update of the regions now before we scale
         // the UI group to get the correct allocation for the struts.
@@ -381,13 +410,24 @@ LayoutManager.prototype = {
         this.uiGroup.scale_x = this.uiGroup.scale_y = 0.5;
         this.uiGroup.opacity = 0;
         global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
+
+        this.emit('startup-prepared');
+
+        // We're mostly prepared for the startup animation
+        // now, but since a lot is going on asynchronously
+        // during startup, let's defer the startup animation
+        // until the event loop is uncontended and idle.
+        // This helps to prevent us from running the animation
+        // when the system is bogged down
+        GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
+            this._startupAnimation();
+            return false;
+        }));
     },
 
     _startupAnimation: function() {
-        global.stage.show();
         // Don't animate the strut
-        this._freezeUpdateRegions();
-        this._createPrimaryBackground();
+        // this._freezeUpdateRegions();
         Tweener.addTween(this.uiGroup,
                          { scale_x: 1,
                            scale_y: 1,
@@ -400,17 +440,24 @@ LayoutManager.prototype = {
 
     _startupAnimationComplete: function() {
         global.stage.no_clear_hint = true;
+        
         this._coverPane.destroy();
         this._coverPane = null;
 
-        this._createSecondaryBackgrounds();
+        this._systemBackground.actor.destroy();
+        this._systemBackground = null;
+
         this._startingUp = false;
 
         Main.panelManager.setPanelsOpacity(255);
 
         this.keyboardBox.show();
+
+        this._showSecondaryBackgrounds();
+
         global.window_group.remove_clip();
-        this._thawUpdateRegions();
+        // this._thawUpdateRegions();
+        this._queueUpdateRegions();
     },
 
     showKeyboard: function () {
@@ -671,30 +718,17 @@ LayoutManager.prototype = {
     },
 
     _queueUpdateRegions: function() {
-        if (!this._updateRegionIdle && !this._freezeUpdateCount)
+        if (this._startingUp)
+            return;
+
+        if (!this._updateRegionIdle)
             this._updateRegionIdle = Mainloop.idle_add(Lang.bind(this, this._updateRegions),
                                                        Meta.PRIORITY_BEFORE_REDRAW);
     },
 
-    _freezeUpdateRegions: function() {
-        if (this._updateRegionIdle)
-            this._updateRegions();
-        this._freezeUpdateCount++;
-    },
-
-    _thawUpdateRegions: function() {
-        this._freezeUpdateCount = --this._freezeUpdateCount >= 0 ? this.freezeUpdateCount : 0;
-        this._queueUpdateRegions();
-    },
-
     _updateFullscreen: function() {
-        for (let i = 0; i < this.monitors.length; i++)
-            this.monitors[i].inFullscreen = global.screen.get_monitor_in_fullscreen (i);
-
         this._updateVisibility();
         this._queueUpdateRegions();
-
-        this.emit('fullscreen-changed');
     },
 
     _windowsRestacked: function() {
