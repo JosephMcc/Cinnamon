@@ -310,7 +310,7 @@ Overview.prototype = {
     _createBackground: function() {
         this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
                                                              container: this._background,
-                                                             effects: Meta.BackgroundEffects.NONE });
+                                                             vignette: true });
     },
 
     // showTemporarily:
