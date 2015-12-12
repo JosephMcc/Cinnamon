@@ -190,7 +190,7 @@ Expo.prototype = {
         for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
             let bgManager = new Background.BackgroundManager({ container: this._backgroundGroup,
                                                                monitorIndex: i,
-                                                               effects: Meta.BackgroundEffects.VIGNETTE });
+                                                               vignette: true });
             this._bgManagers.push(bgManager);
         }
     },
@@ -198,15 +198,9 @@ Expo.prototype = {
     _unshadeBackgrounds: function() {
         let backgrounds = this._backgroundGroup.get_children();
         for (let i = 0; i < backgrounds.length; i++) {
-            let background = backgrounds[i]._delegate;
-
-            Tweener.addTween(background,
+            Tweener.addTween(backgrounds[i],
                              { brightness: 1.0,
-                               time: SHADE_ANIMATION_TIME,
-                               transition: 'easeOutQuad'
-                             });
-            Tweener.addTween(background,
-                             { vignetteSharpness: 0.0,
+                               vignette_sharpness: 0.0,
                                time: SHADE_ANIMATION_TIME,
                                transition: 'easeOutQuad'
                              });
@@ -216,15 +210,9 @@ Expo.prototype = {
     _shadeBackgrounds: function() {
         let backgrounds = this._backgroundGroup.get_children();
         for (let i = 0; i < backgrounds.length; i++) {
-            let background = backgrounds[i]._delegate;
-
-            Tweener.addTween(background,
+            Tweener.addTween(backgrounds[i],
                              { brightness: 0.8,
-                               time: SHADE_ANIMATION_TIME,
-                               transition: 'easeOutQuad'
-                             });
-            Tweener.addTween(background,
-                             { vignetteSharpness: 0.7,
+                                vignette_sharpness: 0.7,
                                time: SHADE_ANIMATION_TIME,
                                transition: 'easeOutQuad'
                              });

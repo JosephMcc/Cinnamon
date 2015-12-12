@@ -439,7 +439,7 @@ ExpoWorkspaceThumbnail.prototype = {
     _createBackground: function() {
         this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
                                                              container: this.contents,
-                                                             effects: Meta.BackgroundEffects.NONE });
+                                                             vignette: false });
     },
 
     setOverviewMode: function(turnOn) {
@@ -558,7 +558,7 @@ ExpoWorkspaceThumbnail.prototype = {
             let clone = this.windows[i];
             let metaWindow = clone.metaWindow;
             if (i == 0) {
-                clone.setStackAbove(this.background);
+                clone.setStackAbove(this._bgManager.backgroundActor);
             } else {
                 let previousClone = this.windows[i - 1];
                 clone.setStackAbove(previousClone.actor);
@@ -715,7 +715,7 @@ ExpoWorkspaceThumbnail.prototype = {
         if (this.windows.length == 0)
             clone.setStackAbove(this.background);
         else
-            clone.setStackAbove(this.windows[this.windows.length - 1].actor);
+            clone.setStackAbove(this._bgManager.backgroundActor);
 
         this.windows.push(clone);
 
