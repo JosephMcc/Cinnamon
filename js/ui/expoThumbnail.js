@@ -647,8 +647,8 @@ ExpoWorkspaceThumbnail.prototype = {
     destroy : function() {            
         this.actor.destroy();        
         this.frame.destroy();
-        this._bgManager.destroy();
-        this._bgManager = null;
+        // this._bgManager.destroy();
+        // this._bgManager = null;
     },
 
     onDestroy: function(actor) {
@@ -658,6 +658,11 @@ ExpoWorkspaceThumbnail.prototype = {
             this.windows[i].destroy();
         }
         this.windows = null;
+
+        if (this._bgManager) {
+          this._bgManager.destroy();
+          this._bgManager = null;
+        }
     },
 
     // Tests if @win belongs to this workspace and monitor
