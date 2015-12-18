@@ -374,7 +374,7 @@ ExpoWorkspaceThumbnail.prototype = {
         this.background = new Clutter.Group();
         this.contents.add_actor(this.background);
 
-        this._createBackground();
+        this._createBackgrounds();
 
         let backgroundShade = new St.Bin({style_class: 'workspace-overview-background-shade'});
         this.background.add_actor(backgroundShade);
@@ -436,10 +436,15 @@ ExpoWorkspaceThumbnail.prototype = {
         this.setOverviewMode(forceOverviewMode);
     },
 
-    _createBackground: function() {
-        this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
-                                                             container: this.contents,
-                                                             vignette: false });
+    _createBackgrounds: function() {
+        this._bgManagers = [];
+
+        for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
+            let bgManager = new Background.BackgroundManager({ container: this.background,
+                                                               monitorIndex: i,
+                                                               vignette: false });
+            this._bgManagers.push(bgManager);
+        }
     },
 
     setOverviewMode: function(turnOn) {
@@ -558,7 +563,7 @@ ExpoWorkspaceThumbnail.prototype = {
             let clone = this.windows[i];
             let metaWindow = clone.metaWindow;
             if (i == 0) {
-                clone.setStackAbove(this._bgManager.backgroundActor);
+                clone.setStackAbove(this.background);
             } else {
                 let previousClone = this.windows[i - 1];
                 clone.setStackAbove(previousClone.actor);
@@ -647,8 +652,6 @@ ExpoWorkspaceThumbnail.prototype = {
     destroy : function() {            
         this.actor.destroy();        
         this.frame.destroy();
-        // this._bgManager.destroy();
-        // this._bgManager = null;
     },
 
     onDestroy: function(actor) {
@@ -659,10 +662,10 @@ ExpoWorkspaceThumbnail.prototype = {
         }
         this.windows = null;
 
-        if (this._bgManager) {
-          this._bgManager.destroy();
-          this._bgManager = null;
-        }
+        for (let i = 0; i < this._bgManagers.length; i++)
+            this._bgManagers[i].destroy();
+
+        this._bgManagers = [];
     },
 
     // Tests if @win belongs to this workspace and monitor
@@ -717,10 +720,7 @@ ExpoWorkspaceThumbnail.prototype = {
         }));
         this.contents.add_actor(clone.actor);
 
-        if (this.windows.length == 0)
-            clone.setStackAbove(this.background);
-        else
-            clone.setStackAbove(this._bgManager.backgroundActor);
+        clone.setStackAbove(this.background);
 
         this.windows.push(clone);
 

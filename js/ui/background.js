@@ -106,6 +106,8 @@ const Main = imports.ui.main;
 const Params = imports.misc.params;
 const Tweener = imports.ui.tweener;
 
+const DEFAULT_BACKGROUND_COLOR = Clutter.Color.from_pixel(0x2e3436ff);
+
 const BACKGROUND_SCHEMA = 'org.cinnamon.desktop.background';
 const PRIMARY_COLOR_KEY = 'primary-color';
 const SECONDARY_COLOR_KEY = 'secondary-color';
@@ -456,6 +458,7 @@ SystemBackground.prototype = {
 
         if (_systemBackground == null) {
             _systemBackground = new Meta.Background({ meta_screen: global.screen });
+            _systemBackground.set_color(DEFAULT_BACKGROUND_COLOR);
             _systemBackground.set_filename(filename, CDesktopEnums.BackgroundStyle.WALLPAPER);
         }
 
@@ -471,7 +474,7 @@ SystemBackground.prototype = {
                 this.emit('loaded');
                 return GLib.SOURCE_REMOVE;
             }));
-            GLib.Source.set_name_by_id(id, '[gnome-shell] SystemBackground.loaded');
+            // GLib.Source.set_name_by_id(id, '[gnome-shell] SystemBackground.loaded');
         } else {
             let id = image.connect('loaded',
                                    Lang.bind(this, function() {

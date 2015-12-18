@@ -95,6 +95,7 @@ const DeskletManager = imports.ui.deskletManager;
 const ExtensionSystem = imports.ui.extensionSystem;
 const Keyboard = imports.ui.keyboard;
 const MessageTray = imports.ui.messageTray;
+const ModalDialog = imports.ui.modalDialog;
 const IndicatorManager = imports.ui.indicatorManager;
 const OsdWindow = imports.ui.osdWindow;
 const Overview = imports.ui.overview;
@@ -423,6 +424,16 @@ function start() {
     expo.init();
 
     _initUserSession();
+
+    global.display.connect('show-restart-message', function(display, message) {
+        showRestartMessage(message);
+        return true;
+    });
+
+    global.display.connect('restart', function() {
+        global.reexec_self();
+        return true;
+    });
 
     // Provide the bus object for gnome-session to
     // initiate logouts.
@@ -1563,4 +1574,33 @@ function getTabList(workspaceOpt, screenOpt) {
         }
     }
     return windows;
+}
+
+function RestartMessage(message) {
+    this._init(message);
+}
+
+RestartMessage.prototype = {
+    __proto__: ModalDialog.ModalDialog.prototype,
+
+    _init: function(message) {
+        ModalDialog.ModalDialog.prototype._init.call(this, { cinnamonReactive: true,
+                                                             styleClass: 'restart-message',
+                                                             shouldFadeIn: false,
+                                                             destroyOnClose: true });
+
+        let label = new St.Label({ text: message });
+        
+        this.contentLayout.add(label, { x_fill: false,
+                                        y_fill: false,
+                                        x_align: St.Align.MIDDLE,
+                                        y_align: St.Align.MIDDLE });
+
+        this._buttonLayout.hide();
+    },
+};
+
+function showRestartMessage(message) {
+    let restartMessage = new RestartMessage(message);
+    restartMessage.open();
 }

@@ -29,14 +29,6 @@ Expo.prototype = {
     },
 
     beforeShow: function() {
-        // The main Background actors are inside global.window_group which are
-        // hidden when displaying the overview, so we create a new
-        // one. Instances of this class share a single CoglTexture behind the
-        // scenes which allows us to show the background with different
-        // rendering options without duplicating the texture data.
-        // this._background = Meta.BackgroundActor.new_for_screen(global.screen);
-        // this._background.hide();
-        // global.overlay_group.add_actor(this._background);
         let monitor = Main.layoutManager.primaryMonitor;
 
         this._spacing = 0;
@@ -68,10 +60,6 @@ Expo.prototype = {
         // During transitions, we raise this to the top to avoid having the overview
         // area be reactive; it causes too many issues such as double clicks on
         // Dash elements, or mouseover handlers in the workspaces.
-
-        this._gradient = new St.Button({reactive: false});
-        this._gradient.set_style_class_name("expo-background");
-        this._group.add_actor(this._gradient);
         this._coverPane = new Clutter.Rectangle({ opacity: 0,
                                                   reactive: true });
         this._group.add_actor(this._coverPane);
@@ -117,7 +105,7 @@ Expo.prototype = {
         this._group.hide();
         global.overlay_group.add_actor(this._group);
 
-        this._gradient.hide();
+        // this._gradient.hide();
         this._coverPane.hide();
         this._addWorkspaceButton.hide();
         this._windowCloseArea.hide();
@@ -210,12 +198,22 @@ Expo.prototype = {
     _shadeBackgrounds: function() {
         let backgrounds = this._backgroundGroup.get_children();
         for (let i = 0; i < backgrounds.length; i++) {
-            Tweener.addTween(backgrounds[i],
-                             { brightness: 0.8,
-                                vignette_sharpness: 0.7,
-                               time: SHADE_ANIMATION_TIME,
-                               transition: 'easeOutQuad'
-                             });
+            global.log(backgrounds[i].monitor);
+            if (backgrounds[i].monitor == Main.layoutManager.primaryIndex) {
+                Tweener.addTween(backgrounds[i],
+                                 { brightness: 0.1,
+                                   vignette_sharpness: 0.1,
+                                   time: SHADE_ANIMATION_TIME,
+                                   transition: 'easeOutQuad'
+                                 });
+            } else {
+                Tweener.addTween(backgrounds[i],
+                                 { brightness: 0.8,
+                                   vignette_sharpness: 0.7,
+                                   time: SHADE_ANIMATION_TIME,
+                                   transition: 'easeOutQuad'
+                                 });
+            }
         }
     },
 
@@ -239,8 +237,8 @@ Expo.prototype = {
         this._group.set_position(primary.x, primary.y);
         this._group.set_size(primary.width, primary.height);
 
-        this._gradient.set_position(0, 0);
-        this._gradient.set_size(primary.width, primary.height);
+        // this._gradient.set_position(0, 0);
+        // this._gradient.set_size(primary.width, primary.height);
 
         this._coverPane.set_position(0, 0);
         this._coverPane.set_size(primary.width, contentHeight);
@@ -370,7 +368,7 @@ Expo.prototype = {
             }, this);
         }));
 
-        this._gradient.show();
+        // this._gradient.show();
         Main.panelManager.disablePanels();
 
         this._shadeBackgrounds();
@@ -500,7 +498,7 @@ Expo.prototype = {
         this._windowCloseArea.hide();
 
         this._backgroundGroup.hide();
-        this._gradient.hide();
+        // this._gradient.hide();
 
         this.visible = false;
         this.animationInProgress = false;

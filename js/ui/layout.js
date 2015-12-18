@@ -20,7 +20,7 @@ const DeskletManager = imports.ui.deskletManager;
 const STARTUP_ANIMATION_TIME = 0.5;
 const KEYBOARD_ANIMATION_TIME = 0.5;
 const BACKGROUND_FADE_ANIMATION_TIME = 1.0;
-const DEFAULT_BACKGROUND_COLOR = Clutter.Color.from_pixel(0x000000ff);
+// const DEFAULT_BACKGROUND_COLOR = Clutter.Color.from_pixel(0x000000ff);
 
 function isPopupMetaWindow(actor) {
     switch(actor.meta_window.get_window_type()) {
@@ -78,11 +78,10 @@ LayoutManager.prototype = {
         this._isPopupWindowVisible = false;
         this._startingUp = true;
 
-        // The stage is always covered so Clutter doesn't need to clear it; however
-        // the color is used as the default contents for the Muffin root background
-        // actor so set it anyways.
-        global.stage.color = DEFAULT_BACKGROUND_COLOR;
-        global.stage.no_clear_hint = false;
+        // We don't want to paint the stage background color because either
+        // the SystemBackground we create or the MetaBackgroundActor inside
+        // global.window_group covers the entirety of the screen.
+        global.stage.no_clear_hint = true;
 
         // Set up stage hierarchy to group all UI actors under one container.
         this.uiGroup = new Cinnamon.GenericContainer({ name: 'uiGroup' });
@@ -106,8 +105,9 @@ LayoutManager.prototype = {
         // global.reparentActor(global.background_actor, this.uiGroup);
         // global.background_actor.hide();
         // global.reparentActor(global.bottom_window_group, this.uiGroup);
-        this.uiGroup.add_actor(Main.deskletContainer.actor);
+        // this.uiGroup.add_actor(Main.deskletContainer.actor);
         global.reparentActor(global.window_group, this.uiGroup);
+        global.window_group.add_child(Main.deskletContainer.actor);
         // global.reparentActor(global.bottom_window_group, global.window_group);
         // global.bottom_window_group.lower_bottom();
         global.reparentActor(global.overlay_group, this.uiGroup);
@@ -391,25 +391,29 @@ LayoutManager.prototype = {
                                               reactive: true });
         this.addChrome(this._coverPane);
 
-        this._updateBackgrounds();
+        if (Meta.is_restart()) {
+            // On restart, we don't do an animation
+        } else {
+            this._updateBackgrounds();
 
-        // We need to force an update of the regions now before we scale
-        // the UI group to get the correct allocation for the struts.
-        this._updateRegions();
+            // We need to force an update of the regions now before we scale
+            // the UI group to get the correct allocation for the struts.
+            this._updateRegions();
 
-        Main.panelManager.setPanelsOpacity(0);
+            Main.panelManager.setPanelsOpacity(0);
 
-        this.keyboardBox.hide();
+            this.keyboardBox.hide();
 
-        let monitor = this.primaryMonitor;
-        let x = monitor.x + monitor.width / 2.0;
-        let y = monitor.y + monitor.height / 2.0;
+            let monitor = this.primaryMonitor;
+            let x = monitor.x + monitor.width / 2.0;
+            let y = monitor.y + monitor.height / 2.0;
 
-        this.uiGroup.set_pivot_point(x / global.screen_width,
-                                     y / global.screen_height);
-        this.uiGroup.scale_x = this.uiGroup.scale_y = 0.5;
-        this.uiGroup.opacity = 0;
-        global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
+            this.uiGroup.set_pivot_point(x / global.screen_width,
+                                         y / global.screen_height);
+            this.uiGroup.scale_x = this.uiGroup.scale_y = 0.75;
+            this.uiGroup.opacity = 0;
+            global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
+        }
 
         this.emit('startup-prepared');
 
@@ -426,21 +430,23 @@ LayoutManager.prototype = {
     },
 
     _startupAnimation: function() {
-        // Don't animate the strut
-        // this._freezeUpdateRegions();
-        Tweener.addTween(this.uiGroup,
-                         { scale_x: 1,
-                           scale_y: 1,
-                           opacity: 255,
-                           time: STARTUP_ANIMATION_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: this._startupAnimationComplete,
-                           onCompleteScope: this });       
+        if (Meta.is_restart()) {
+            this._startupAnimationComplete();
+        } else {
+            // Don't animate the strut
+            // this._freezeUpdateRegions();
+            Tweener.addTween(this.uiGroup,
+                             { scale_x: 1,
+                               scale_y: 1,
+                               opacity: 255,
+                               time: STARTUP_ANIMATION_TIME,
+                               transition: 'easeOutQuad',
+                               onComplete: this._startupAnimationComplete,
+                               onCompleteScope: this });
+        }
     },
 
     _startupAnimationComplete: function() {
-        global.stage.no_clear_hint = true;
-        
         this._coverPane.destroy();
         this._coverPane = null;
 

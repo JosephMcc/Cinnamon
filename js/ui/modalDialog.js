@@ -60,11 +60,17 @@ ModalDialog.prototype = {
      */
     _init: function(params) {
         params = Params.parse(params, { cinnamonReactive: false,
-                                        styleClass: null });
+                                        styleClass: null,
+                                        shouldFadeIn: true,
+                                        shouldFadeOut: true,
+                                        destroyOnClose: true });
 
         this.state = State.CLOSED;
         this._hasModal = false;
         this._cinnamonReactive = params.cinnamonReactive;
+        this._shouldFadeIn = params.shouldFadeIn;
+        this._shouldFadeOut = params.shouldFadeOut;
+        this._destroyOnClose = params.destroyOnClose;
 
         this._group = new St.Group({ visible: false,
                                      x: 0,
@@ -269,7 +275,7 @@ ModalDialog.prototype = {
         this._group.show();
         Tweener.addTween(this._group,
                          { opacity: 255,
-                           time: OPEN_AND_CLOSE_TIME,
+                           time: this._shouldFadeIn ? OPEN_AND_CLOSE_TIME : 0,
                            transition: 'easeOutQuad',
                            onComplete: Lang.bind(this,
                                function() {
@@ -301,6 +307,15 @@ ModalDialog.prototype = {
         return true;
     },
 
+    _closeComplete: function() {
+        this.state = State.CLOSED;
+        this._group.hide();
+        this.emit('closed');
+
+        if (this._destroyOnClose)
+            this.destroy();
+    },
+
     /**
      * close:
      * @timestamp (int): (optional) timestamp optionally used to associate the
@@ -316,16 +331,16 @@ ModalDialog.prototype = {
         this.popModal(timestamp);
         this._savedKeyFocus = null;
 
-        Tweener.addTween(this._group,
-                         { opacity: 0,
-                           time: OPEN_AND_CLOSE_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: Lang.bind(this,
-                               function() {
-                                   this.state = State.CLOSED;
-                                   this._group.hide();
-                               })
-                         });
+        if (this._shouldFadeOut)
+            Tweener.addTween(this._group,
+                             { opacity: 0,
+                               time: OPEN_AND_CLOSE_TIME,
+                               transition: 'easeOutQuad',
+                               onComplete: Lang.bind(this,
+                                                     this._closeComplete)
+                             })
+        else
+            this._closeComplete();
     },
 
     /**
@@ -657,6 +672,23 @@ NotifyDialog.prototype = {
         ]);
     },
 };
+
+// function RestartMessage(message) {
+//     this._init(message);
+// }
+
+// RestartMessage.prototype = {
+//     __proto__: ModalDialog.prototype,
+
+//     _init: function(message) {
+//         ModalDialog.prototype._init.call(this);
+
+//         let label = new St.Label({ text: message });
+//         this.contentLayout.add(label);
+
+//         this._buttonLayout.hide();
+//     },
+// };
 
 /**
  * #InfoOSD

@@ -814,6 +814,10 @@ StScrollBar StButton#vhandle:hover {
     text-align: center;
 }
 
+.restart-message {
+	font-size: 14pt;
+}
+
 /* ===================================================================
  * Run dialog
  * ===================================================================*/

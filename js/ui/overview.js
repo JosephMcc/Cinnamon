@@ -256,11 +256,7 @@ Overview.prototype = {
         this._background.hide();
         global.overlay_group.add_actor(this._background);
 
-        this._createBackground();
-
-        this._backgroundShade = new St.Bin({style_class: 'workspace-overview-background-shade'});
-        this._background.add_actor(this._backgroundShade);
-        this._backgroundShade.set_size(global.screen_width, global.screen_height);
+        this._createBackgrounds();
 
         this.visible = true;
         this.animationInProgress = true;
@@ -307,10 +303,15 @@ Overview.prototype = {
         this.emit('showing');
     },
 
-    _createBackground: function() {
-        this._bgManager = new Background.BackgroundManager({ monitorIndex: Main.layoutManager.primaryIndex,
-                                                             container: this._background,
-                                                             vignette: true });
+    _createBackgrounds: function() {
+        this._bgManagers = [];
+
+        for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
+            let bgManager = new Background.BackgroundManager({ container: this._background,
+                                                               monitorIndex: i,
+                                                               vignette: true });
+            this._bgManagers.push(bgManager);
+        }
     },
 
     // showTemporarily:
@@ -441,8 +442,11 @@ Overview.prototype = {
         this._coverPane.destroy();
         global.overlay_group.remove_actor(this._background);
         this._background.destroy();
-        this._bgManager.destroy();
-        this._bgManager = null;
+        
+        for (let i = 0; i < this._bgManagers.length; i++)
+            this._bgManagers[i].destroy();
+
+        this._bgManagers = [];
 
         // Re-enable unredirection
         Meta.enable_unredirect_for_screen(global.screen);

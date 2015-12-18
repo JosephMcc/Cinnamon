@@ -12,6 +12,7 @@ const Mainloop = imports.mainloop;
 const AppSwitcher = imports.ui.appSwitcher.appSwitcher;
 const Main = imports.ui.main;
 const Tweener = imports.ui.tweener;
+const Background = imports.ui.background;
 
 const INITIAL_DELAY_TIMEOUT = 150;
 const CHECK_DESTROYED_TIMEOUT = 100;
@@ -44,10 +45,12 @@ AppSwitcher3D.prototype = {
         // this._background.hide();
         // global.overlay_group.add_actor(this._background);
 
-        this._backgroundGroup = new Meta.BackgroundGroup();
-        global.overlay_group.add_child(this._backgroundGroup);
-        this._backgroundGroup.hide();
-        this._bgManagers = [];
+        this._background = new Clutter.Actor();
+        this._background.hide();
+        global.overlay_group.add_child(this._background);
+        // this._backgroundGroup.hide();
+        // this._bgManagers = [];
+        this._createBackgrounds();
 
         // create a container for all our widgets
         this.actor = new St.Group({ visible: true, reactive: true, });
@@ -58,6 +61,23 @@ AppSwitcher3D.prototype = {
         Main.uiGroup.add_actor(this.actor);
 
         this._setupModal();
+    },
+
+    _createBackgrounds: function() {
+        this._bgManagers = [];
+
+        global.log(this._activeMonitor);
+
+        // this.bgManager = new Background.BackgroundManager({ container: this._background,
+        //                                                     monitorIndex: this._activeMonitor.index,
+        //                                                     vignette: true });
+
+        for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
+            let bgManager = new Background.BackgroundManager({ container: this._background,
+                                                               monitorIndex: i,
+                                                               vignette: true });
+            this._bgManagers.push(bgManager);
+        }
     },
 
     _show: function() {
@@ -78,7 +98,7 @@ AppSwitcher3D.prototype = {
         Main.panelManager.panels.forEach(function(panel) { panel.actor.set_reactive(false); });
 
         Tweener.addTween(this._background, {
-            dim_factor: DIM_FACTOR,
+            // dim_factor: DIM_FACTOR,
             time: ANIMATION_TIME,
             transition: TRANSITION_TYPE
         });
@@ -139,7 +159,7 @@ AppSwitcher3D.prototype = {
         // background
         Tweener.removeTweens(this._background);
         Tweener.addTween(this._background, {
-            dim_factor: 1.0,
+            // dim_factor: 1.0,
             time: ANIMATION_TIME,
             transition: TRANSITION_TYPE,
             onComplete: Lang.bind(this, this._destroyActors),
@@ -294,9 +314,15 @@ AppSwitcher3D.prototype = {
     },
 
     _destroyActors: function() {
-        global.overlay_group.remove_actor(this._background);
+        global.overlay_group.remove_actor(this._backgroundGroup);
+        this._background.destroy();
         Main.uiGroup.remove_actor(this.actor);
         this.actor.destroy();
+        
+        for (let i = 0; i < this._bgManagers.length; i++)
+            this._bgManagers[i].destroy();
+
+        this._bgManagers = [];
 
         // show all window actors
         global.window_group.show();
