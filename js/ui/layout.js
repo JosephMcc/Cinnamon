@@ -2,11 +2,13 @@
 
 const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
+const Gio = imports.gi.Gio;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
 const Signals = imports.signals;
 const St = imports.gi.St;
+const Background = imports.ui.background;
 const Main = imports.ui.main;
 const Params = imports.misc.params;
 const ScreenSaver = imports.misc.screenSaver;
@@ -17,6 +19,7 @@ const DeskletManager = imports.ui.deskletManager;
 
 const STARTUP_ANIMATION_TIME = 0.5;
 const KEYBOARD_ANIMATION_TIME = 0.5;
+const BACKGROUND_FADE_ANIMATION_TIME = 1.0;
 
 function LayoutManager() {
     this._init.apply(this, arguments);
@@ -32,6 +35,9 @@ LayoutManager.prototype = {
         this.edgeRight = null;
         this.edgeLeft = null;
         this._chrome = new Chrome(this);
+
+        this._startingUp = true;
+
         this.enabledEdgeFlip = global.settings.get_boolean("enable-edge-flip");
         this.edgeFlipDelay = global.settings.get_int("edge-flip-delay");
 
@@ -40,6 +46,11 @@ LayoutManager.prototype = {
                                               track_hover: true });
         this.addChrome(this.keyboardBox, { visibleInFullscreen: true, affectsStruts: true });
         this._keyboardHeightNotifyId = 0;
+
+        this._backgroundGroup = new Meta.BackgroundGroup();
+        Main.uiGroup.add_actor(this._backgroundGroup);
+        this._backgroundGroup.lower_bottom();
+        this._bgManagers = [];
 
         this._monitorsChanged();
 
@@ -80,6 +91,8 @@ LayoutManager.prototype = {
         this.edgeLeft.delay = this.edgeFlipDelay;
 
         this.hotCornerManager = new HotCorner.HotCornerManager();
+
+        this._loadBackground();
     },
     
     _toggleExpo: function() {
@@ -124,6 +137,48 @@ LayoutManager.prototype = {
             this.hotCornerManager.updatePosition(this.primaryMonitor, this.bottomMonitor);
     },
 
+    _createBackgroundManager: function(monitorIndex) {
+        let bgManager = new Background.BackgroundManager({ container: this._backgroundGroup,
+                                                           layoutManager: this,
+                                                           monitorIndex: monitorIndex });
+
+        return bgManager;
+    },
+
+    _showSecondaryBackgrounds: function() {
+        for (let i = 0; i < this.monitors.length; i++) {
+            if (i != this.primaryIndex) {
+                let backgroundActor = this._bgManagers[i].backgroundActor;
+                backgroundActor.show();
+                backgroundActor.opacity = 0;
+                if (!Main.runStartupAnimation) {
+                    backgroundActor.opacity = 255;
+                } else {
+                    Tweener.addTween(backgroundActor,
+                                     { opacity: 255,
+                                       time: BACKGROUND_FADE_ANIMATION_TIME,
+                                       transition: 'easeOutQuad' });
+                }
+            }
+        }
+    },
+
+    _updateBackgrounds: function() {
+        let i;
+        for (i = 0; i < this._bgManagers.length; i++)
+            this._bgManagers[i].destroy();
+
+        this._bgManagers = [];
+
+        for (let i = 0; i < this.monitors.length; i++) {
+            let bgManager = this._createBackgroundManager(i);
+            this._bgManagers.push(bgManager);
+
+            if (i != this.primaryIndex && this._startingUp)
+                bgManager.backgroundActor.hide();
+        }
+    },
+
     _updateBoxes: function() {
         this._updateHotCorners();
 
@@ -137,6 +192,7 @@ LayoutManager.prototype = {
         this._updateMonitors();
         this._updateBoxes();
         this._updateHotCorners();
+        this._updateBackgrounds();
         this.emit('monitors-changed');
     },
 
@@ -181,6 +237,25 @@ LayoutManager.prototype = {
         return Main.layoutManager.monitors[index];
     },
 
+    _loadBackground: function() {
+        this._systemBackground = new Background.SystemBackground();
+        this._systemBackground.actor.hide();
+
+        global.stage.insert_child_below(this._systemBackground.actor, null);
+
+        let constraint = new Clutter.BindConstraint({ source: global.stage,
+                                                      coordinate: Clutter.BindCoordinate.ALL });
+        this._systemBackground.actor.add_constraint(constraint);
+
+        let signalId = this._systemBackground.connect('loaded', Lang.bind(this, function() {
+            this._systemBackground.disconnect(signalId);
+            this._systemBackground.actor.show();
+            global.stage.show();
+
+            this._prepareStartupAnimation();
+        }));
+    },
+
     _prepareStartupAnimation: function() {
         // During the initial transition, add a simple actor to block all events,
         // so they don't get delivered to X11 windows that have been transformed.
@@ -190,37 +265,59 @@ LayoutManager.prototype = {
                                               reactive: true });
         this.addChrome(this._coverPane);
 
-        // We need to force an update of the regions now before we scale
-        // the UI group to get the correct allocation for the struts.
-        this._chrome.updateRegions();
+        if (!Main.runStartupAnimation) {
+            // Don't run the startup animation
+        } else {
+            this._updateBackgrounds();
 
-        Main.panelManager.setPanelsOpacity(0);
+            // We need to force an update of the regions now before we scale
+            // the UI group to get the correct allocation for the struts.
+            this._chrome.updateRegions();
 
-        this.keyboardBox.hide();
+            Main.panelManager.setPanelsOpacity(0);
 
-        let monitor = this.primaryMonitor;
-        let x = monitor.x + monitor.width / 2.0;
-        let y = monitor.y + monitor.height / 2.0;
+            this.keyboardBox.hide();
 
-        Main.uiGroup.set_pivot_point(x / global.screen_width,
-                                     y / global.screen_height);
-        Main.uiGroup.scale_x = Main.uiGroup.scale_y = 0.75;
-        Main.uiGroup.opacity = 0;
-        global.background_actor.show();
-        global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
+            let monitor = this.primaryMonitor;
+            let x = monitor.x + monitor.width / 2.0;
+            let y = monitor.y + monitor.height / 2.0;
+
+            Main.uiGroup.set_pivot_point(x / global.screen_width,
+                                         y / global.screen_height);
+            Main.uiGroup.scale_x = Main.uiGroup.scale_y = 0.75;
+            Main.uiGroup.opacity = 0;
+            global.window_group.set_clip(monitor.x, monitor.y, monitor.width, monitor.height);
+        }
+
+        this.emit('startup-prepared');
+
+        // We're mostly prepared for the startup animation
+        // now, but since a lot is going on asynchronously
+        // during startup, let's defer the startup animation
+        // until the event loop is uncontended and idle.
+        // This helps to prevent us from running the animation
+        // when the system is bogged down
+        GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
+            this._startupAnimation();
+            return false;
+        }));
     },
 
     _startupAnimation: function() {
-        // Don't animate the strut
-        this._chrome.freezeUpdateRegions();
-        Tweener.addTween(Main.uiGroup,
-                         { scale_x: 1,
-                           scale_y: 1,
-                           opacity: 255,
-                           time: STARTUP_ANIMATION_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: this._startupAnimationComplete,
-                           onCompleteScope: this });       
+        if (!Main.runStartupAnimation) {
+            this._startupAnimationComplete();
+        } else {
+            // Don't animate the strut
+            this._chrome.freezeUpdateRegions();
+            Tweener.addTween(Main.uiGroup,
+                             { scale_x: 1,
+                               scale_y: 1,
+                               opacity: 255,
+                               time: STARTUP_ANIMATION_TIME,
+                               transition: 'easeOutQuad',
+                               onComplete: this._startupAnimationComplete,
+                               onCompleteScope: this });
+        }       
     },
 
     _startupAnimationComplete: function() {
@@ -228,9 +325,22 @@ LayoutManager.prototype = {
         this._coverPane.destroy();
         this._coverPane = null;
 
+        let sound_settings = new Gio.Settings( {schema_id: "org.cinnamon.sounds"} );
+        let do_login_sound = sound_settings.get_boolean("login-enabled");
+
+        Main.soundManager.play_once_per_session('login');
+
+        this._systemBackground.actor.destroy();
+        this._systemBackground = null;
+
+        this._startingUp = false;
+
         Main.panelManager.setPanelsOpacity(255);
 
         this.keyboardBox.show();
+
+        this._showSecondaryBackgrounds();
+
         global.window_group.remove_clip();
         this._chrome.thawUpdateRegions();
     },
