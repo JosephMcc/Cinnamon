@@ -118,8 +118,7 @@ const Keybindings = imports.ui.keybindings;
 const Settings = imports.ui.settings;
 const Systray = imports.ui.systray;
 
-const DEFAULT_BACKGROUND_COLOR = new Clutter.Color();
-DEFAULT_BACKGROUND_COLOR.from_pixel(0x2266bbff);
+const DEFAULT_BACKGROUND_COLOR = Clutter.Color.from_pixel(0x000000ff);
 
 const LAYOUT_TRADITIONAL = "traditional";
 const LAYOUT_FLIPPED = "flipped";
@@ -160,6 +159,7 @@ let _startDate;
 let _defaultCssStylesheet = null;
 let _cssStylesheet = null;
 let dynamicWorkspaces = null;
+let runStartupAnimation = null;
 let tracker = null;
 let settingsManager = null;
 let systrayManager = null;
@@ -347,8 +347,6 @@ function start() {
                         [alloc.min_size, alloc.natural_size] = [height, height];
                     });
 
-    global.reparentActor(global.background_actor, uiGroup);
-    global.background_actor.hide();
     global.reparentActor(global.bottom_window_group, uiGroup);
     uiGroup.add_actor(deskletContainer.actor);
     global.reparentActor(global.window_group, uiGroup);
@@ -373,13 +371,9 @@ function start() {
 
     let startupAnimationEnabled = global.settings.get_boolean("startup-animation");
 
-    let do_animation = startupAnimationEnabled &&
-                       !GLib.getenv('CINNAMON_SOFTWARE_RENDERING') &&
-                       !GLib.getenv('CINNAMON_2D');
-
-    if (do_animation) {
-        layoutManager._prepareStartupAnimation();
-    }
+    runStartupAnimation = startupAnimationEnabled &&
+                          !GLib.getenv('CINNAMON_SOFTWARE_RENDERING') &&
+                          !GLib.getenv('CINNAMON_2D');
 
     let pointerTracker = new PointerTracker.PointerTracker();
     pointerTracker.setPosition(layoutManager.primaryMonitor.x + layoutManager.primaryMonitor.width/2,
@@ -472,18 +466,18 @@ function start() {
     // until the event loop is uncontended and idle.
     // This helps to prevent us from running the animation
     // when the system is bogged down
-    if (do_animation) {
-        let id = GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
-            if (do_login_sound)
-                soundManager.play_once_per_session('login');
-            layoutManager._startupAnimation();
-            return GLib.SOURCE_REMOVE;
-        }));
-    } else {
-        global.background_actor.show();
-        if (do_login_sound)
-            soundManager.play_once_per_session('login');
-    }
+    // if (do_animation) {
+    //     let id = GLib.idle_add(GLib.PRIORITY_LOW, Lang.bind(this, function() {
+    //         if (do_login_sound)
+    //             soundManager.play_once_per_session('login');
+    //         layoutManager._startupAnimation();
+    //         return GLib.SOURCE_REMOVE;
+    //     }));
+    // } else {
+    //     global.background_actor.show();
+    //     if (do_login_sound)
+    //         soundManager.play_once_per_session('login');
+    // }
 
     global.connect('shutdown', do_shutdown_sequence);
 
