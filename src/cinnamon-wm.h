@@ -40,6 +40,8 @@ void     cinnamon_wm_completed_map              (CinnamonWM         *wm,
 void     cinnamon_wm_completed_destroy          (CinnamonWM         *wm,
                                               MetaWindowActor *actor);
 void     cinnamon_wm_completed_switch_workspace (CinnamonWM         *wm);
+void     cinnamon_wm_complete_display_change    (ShellWM         *wm,
+                                                 gboolean         ok);
 
 G_END_DECLS
 
