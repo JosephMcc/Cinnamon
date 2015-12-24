@@ -32,7 +32,6 @@ enum
   HIDE_TILE_PREVIEW,
   SHOW_HUD_PREVIEW,
   HIDE_HUD_PREVIEW,
-  CONFIRM_DISPLAY_CHANGE,
 
   LAST_SIGNAL
 };
@@ -172,13 +171,6 @@ cinnamon_wm_class_init (CinnamonWMClass *klass)
                      0,
                      NULL, NULL, NULL,
                      G_TYPE_NONE, 0);
-    cinnamon_wm_signals[CONFIRM_DISPLAY_CHANGE] =
-        g_signal_new ("confirm-display-change",
-                     G_TYPE_FROM_CLASS (klass),
-                     G_SIGNAL_RUN_LAST,
-                     0,
-                     NULL, NULL, NULL,
-                     G_TYPE_NONE, 0);
 }
 
 void
@@ -290,20 +282,6 @@ cinnamon_wm_completed_destroy (CinnamonWM         *wm,
   meta_plugin_destroy_completed (wm->plugin, actor);
 }
 
-/**
- * cinnamon_wm_complete_display_change:
- * @wm: the CinnamonWM
- * @ok: if the new configuration was OK
- *
- * The plugin must call this after the user responded to the confirmation dialog.
- */
-void
-cinnamon_wm_complete_display_change (ShellWM  *wm,
-                                     gboolean  ok)
-{
-  meta_plugin_complete_display_change (wm->plugin, ok);
-}
-
 void
 _cinnamon_wm_kill_window_effects (CinnamonWM         *wm,
                                MetaWindowActor *actor)
@@ -396,12 +374,6 @@ _cinnamon_wm_destroy (CinnamonWM         *wm,
                    MetaWindowActor *actor)
 {
   g_signal_emit (wm, cinnamon_wm_signals[DESTROY], 0, actor);
-}
-
-void
-_shell_wm_confirm_display_change (ShellWM *wm)
-{
-  g_signal_emit (wm, cinnamon_wm_signals[CONFIRM_DISPLAY_CHANGE], 0);
 }
 
 /**

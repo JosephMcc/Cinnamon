@@ -96,9 +96,6 @@ static void gnome_cinnamon_plugin_kill_window_effects   (MetaPlugin      *plugin
 
 static gboolean              gnome_cinnamon_plugin_xevent_filter (MetaPlugin *plugin,
                                                                XEvent     *event);
-
-static void gnome_cinnamon_plugin_confirm_display_change (MetaPlugin *plugin);
-
 static const MetaPluginInfo *gnome_cinnamon_plugin_plugin_info   (MetaPlugin *plugin);
 
 
@@ -163,8 +160,6 @@ gnome_cinnamon_plugin_class_init (CinnamonPluginClass *klass)
 
 
   plugin_class->kill_window_effects   = gnome_cinnamon_plugin_kill_window_effects;
-
-  plugin_class->confirm_display_change = gnome_cinnamon_plugin_confirm_display_change;
 
   plugin_class->xevent_filter    = gnome_cinnamon_plugin_xevent_filter;
   plugin_class->plugin_info      = gnome_cinnamon_plugin_plugin_info;
@@ -379,12 +374,6 @@ static void
 gnome_cinnamon_plugin_hide_hud_preview (MetaPlugin *plugin)
 {
     _cinnamon_wm_hide_hud_preview (get_cinnamon_wm ());
-}
-
-static void
-gnome_cinnamon_plugin_confirm_display_change (MetaPlugin *plugin)
-{
-  _cinnamon_wm_confirm_display_change (get_cinnamon_wm ());
 }
 
 static gboolean

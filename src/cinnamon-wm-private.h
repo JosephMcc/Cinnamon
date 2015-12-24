@@ -55,8 +55,6 @@ void _cinnamon_wm_hide_hud_preview     (CinnamonWM         *wm);
 void _cinnamon_wm_kill_window_effects   (CinnamonWM             *wm,
                                       MetaWindowActor     *actor);
 
-void _cinnamon_wm_confirm_display_change (CinnamonWM            *wm);
-
 G_END_DECLS
 
 #endif /* __CINNAMON_WM_PRIVATE_H__ */
