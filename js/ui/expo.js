@@ -186,7 +186,7 @@ Expo.prototype = {
         for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
             let bgManager = new Background.BackgroundManager({ container: this._backgroundGroup,
                                                                monitorIndex: i,
-                                                               vignette: true });
+                                                               effects: Meta.BackgroundEffects.VIGNETTE });
             this._bgManagers.push(bgManager);
         }
     },
@@ -194,30 +194,46 @@ Expo.prototype = {
     _unshadeBackgrounds: function() {
         let backgrounds = this._backgroundGroup.get_children();
         for (let i = 0; i < backgrounds.length; i++) {
-            Tweener.addTween(backgrounds[i],
+            let background = backgrounds[i]._delegate;
+
+            Tweener.addTween(background,
                              { brightness: 1.0,
-                               vignette_sharpness: 0.0,
                                time: SHADE_ANIMATION_TIME,
                                transition: 'easeOutQuad'
                              });
+             Tweener.addTween(background,
+                             { vignetteSharpness: 0.0,
+                               time: SHADE_ANIMATION_TIME,
+                               transition: 'easeOutQuad'
+                              });
         }
     },
 
     _shadeBackgrounds: function() {
         let backgrounds = this._backgroundGroup.get_children();
         for (let i = 0; i < backgrounds.length; i++) {
-            global.log(backgrounds[i].monitor);
+            let background = backgrounds[i]._delegate;
+
             if (backgrounds[i].monitor == Main.layoutManager.primaryIndex) {
-                Tweener.addTween(backgrounds[i],
+                Tweener.addTween(background,
                                  { brightness: 0.1,
-                                   vignette_sharpness: 0.1,
                                    time: SHADE_ANIMATION_TIME,
                                    transition: 'easeOutQuad'
                                  });
+                Tweener.addTween(background,
+                                 { vignetteSharpness: 0.1,
+                                   time: SHADE_ANIMATION_TIME,
+                                   transition: 'easeOutQuad'
+                                 });
+
             } else {
-                Tweener.addTween(backgrounds[i],
+                Tweener.addTween(background,
                                  { brightness: 0.8,
-                                   vignette_sharpness: 0.7,
+                                   time: SHADE_ANIMATION_TIME,
+                                   transition: 'easeOutQuad'
+                                 });
+                Tweener.addTween(background,
+                                 { vignetteSharpness: 0.7,
                                    time: SHADE_ANIMATION_TIME,
                                    transition: 'easeOutQuad'
                                  });

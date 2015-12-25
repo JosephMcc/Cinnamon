@@ -147,13 +147,13 @@ LayoutManager.prototype = {
     _showSecondaryBackgrounds: function() {
         for (let i = 0; i < this.monitors.length; i++) {
             if (i != this.primaryIndex) {
-                let backgroundActor = this._bgManagers[i].backgroundActor;
-                backgroundActor.show();
-                backgroundActor.opacity = 0;
+                let background = this._bgManagers[i].background;
+                background.actor.show();
+                background.actor.opacity = 0;
                 if (!Main.runStartupAnimation) {
-                    backgroundActor.opacity = 255;
+                    background.actor.opacity = 255;
                 } else {
-                    Tweener.addTween(backgroundActor,
+                    Tweener.addTween(background.actor,
                                      { opacity: 255,
                                        time: BACKGROUND_FADE_ANIMATION_TIME,
                                        transition: 'easeOutQuad' });
@@ -174,7 +174,7 @@ LayoutManager.prototype = {
             this._bgManagers.push(bgManager);
 
             if (i != this.primaryIndex && this._startingUp)
-                bgManager.backgroundActor.hide();
+                bgManager.background.actor.hide();
         }
     },
 

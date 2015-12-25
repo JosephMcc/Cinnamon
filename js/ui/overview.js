@@ -304,7 +304,7 @@ Overview.prototype = {
         for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
             let bgManager = new Background.BackgroundManager({ container: this._background,
                                                                monitorIndex: i,
-                                                               vignette: true });
+                                                               effects: Meta.BackgroundEffects.NONE });
             this._bgManagers.push(bgManager);
         }
     },
