@@ -442,7 +442,7 @@ ExpoWorkspaceThumbnail.prototype = {
         for (let i = 0; i < Main.layoutManager.monitors.length; i++) {
             let bgManager = new Background.BackgroundManager({ container: this.background,
                                                                monitorIndex: i,
-                                                               effects: Meta.BackgroundEffects.NONE });
+                                                               vignette: false });
             this._bgManagers.push(bgManager);
         }
     },
