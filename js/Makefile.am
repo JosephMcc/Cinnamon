@@ -46,6 +46,7 @@ nobase_dist_js_DATA = \
 	ui/extension.js	\
 	ui/extensionSystem.js	\
 	ui/flashspot.js		\
+	ui/grabHelper.js    \
 	ui/hotCorner.js		\
 	ui/keybindings.js   \
 	ui/keyboard.js		\

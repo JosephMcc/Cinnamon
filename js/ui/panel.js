@@ -359,12 +359,12 @@ PanelManager.prototype = {
      * setPanelsOpacity:
      * @opacity (int): opacity of panels
      *
-     * Sets the opacity of all hideable panels to @opacity
+     * Sets the opacity of all panels to @opacity
      */
     setPanelsOpacity: function(opacity) {
         for (let i in this.panels) {
-            if (this.panels[i] && this.panels[i].isHideable())
-                this.panels[i].opacity = opacity;
+            if (this.panels[i])
+                this.panels[i].actor.opacity = opacity;
         }
     },
 
@@ -1523,7 +1523,7 @@ Panel.prototype = {
      * Returns: whether the panel can be hidden (auto-hide or intellihide)
      */
     isHideable: function() {
-        return this._autohideSettings != "true";
+        return this._autohideSettings != "false";
     },
     
     /**
@@ -1627,6 +1627,7 @@ Panel.prototype = {
     },
 
     _onButtonPressEvent: function (actor, event) {
+        log("Panel button press");
         if (event.get_button()==1){
             if (this._context_menu.isOpen) {
                 this._context_menu.toggle();
@@ -1888,6 +1889,11 @@ Panel.prototype = {
                 break;
             }
 
+            if (global.display.focus_window.get_monitor() != this.monitorIndex) {
+                this._shouldShow = false;
+                break;
+            }
+
             /* Calculate the y instead of getting the actor y since the
              * actor might be hidden*/
             let y = this.bottomPosition ?
@@ -1939,11 +1945,13 @@ Panel.prototype = {
     },
     
     _enterPanel: function() {
+        log("Entered panel");
         this._mouseEntered = true;
         this._updatePanelVisibility();
     },
 
     _leavePanel:function() {
+        log("Left panel");
         this._mouseEntered = false;
         this._updatePanelVisibility();
     }, 
