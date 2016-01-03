@@ -378,18 +378,18 @@ gnome_cinnamon_plugin_hide_hud_preview (MetaPlugin *plugin)
 
 static gboolean
 ignore_crossing_event (MetaPlugin   *plugin,
-                       XEvent       *xev)
+                       XIEnterEvent *enter_event)
 {
   MetaScreen *screen = meta_plugin_get_screen (plugin);
   ClutterStage *stage = CLUTTER_STAGE (meta_get_stage_for_screen (screen));
 
-  if (xev->xcrossing.window == clutter_x11_get_stage_window (stage))
+  if (enter_event->event == clutter_x11_get_stage_window (stage))
     {
       /* If the pointer enters a child of the stage window (eg, a
        * trayicon), we want to consider it to still be in the stage,
        * so don't let Clutter see the event.
        */
-      if (xev->xcrossing.detail == NotifyInferior)
+      if (enter_event->detail == XINotifyInferior)
         return TRUE;
 
       /* If the pointer is grabbed by a window it is not currently in,
@@ -399,9 +399,9 @@ ignore_crossing_event (MetaPlugin   *plugin,
        * out of sync, but that happens fairly often with grabs, and we
        * can work around it. (Eg, cinnamon_global_sync_pointer().)
        */
-      if (xev->xcrossing.mode == NotifyGrab &&
-          (xev->xcrossing.detail == NotifyNonlinear ||
-           xev->xcrossing.detail == NotifyNonlinearVirtual))
+      if (enter_event->mode == XINotifyGrab &&
+          (enter_event->detail == XINotifyNonlinear ||
+           enter_event->detail == XINotifyNonlinearVirtual))
         return TRUE;
     }
 
@@ -412,6 +412,9 @@ static gboolean
 gnome_cinnamon_plugin_xevent_filter (MetaPlugin *plugin,
                                      XEvent     *xev)
 {
+  MetaScreen *screen = meta_plugin_get_screen (plugin);
+  MetaDisplay *display = meta_screen_get_display (screen);
+
   CinnamonPlugin *cinnamon_plugin = CINNAMON_PLUGIN (plugin);
 #ifdef GLX_INTEL_swap_event
   if (cinnamon_plugin->have_swap_event &&
@@ -433,9 +436,14 @@ gnome_cinnamon_plugin_xevent_filter (MetaPlugin *plugin,
   /* Make sure that Clutter doesn't see certain focus change events,
    * so that when we're moving into something like a tray icon, we
    * don't unfocus the container. */
-  if ((xev->xany.type == EnterNotify || xev->xany.type == LeaveNotify) &&
-      ignore_crossing_event (plugin, xev))
-    return TRUE;
+  if (xev->type == GenericEvent &&
+      xev->xcookie.extension == meta_display_get_xinput_opcode (display))
+    {
+      XIEvent *input_event = (XIEvent *) xev->xcookie.data;
+      if ((input_event->evtype == XI_Enter || input_event->evtype == XI_Leave) &&
+          ignore_crossing_event (plugin, (XIEnterEvent *) input_event))
+        return TRUE;
+    }
 
   /*
    * Pass the event to cinnamon-global
