@@ -568,7 +568,7 @@ focus_window_changed (MetaDisplay *display,
 
   /* If the stage window became unfocused, drop the key focus
    * on Clutter's side. */
-  if (!stage_is_focused (global))
+  if (!meta_stage_is_focused (global->meta_screen))
     clutter_stage_set_key_focus (global->stage, NULL);
 }
 
@@ -588,14 +588,6 @@ get_key_focused_actor (CinnamonGlobal *global)
 }
 
 static void
-cinnamon_global_focus_stage (CinnamonGlobal *global)
-{
-  XSetInputFocus (global->xdisplay, global->stage_xwindow,
-                  RevertToPointerRoot,
-                  get_current_time_maybe_roundtrip (global));
-}
-
-static void
 sync_stage_window_focus (CinnamonGlobal *global)
 {
   ClutterActor *actor;
@@ -606,12 +598,14 @@ sync_stage_window_focus (CinnamonGlobal *global)
   actor = get_key_focused_actor (global);
 
   /* An actor got key focus and the stage needs to be focused. */
-  if (actor != NULL && !stage_is_focused (global))
-    cinnamon_global_focus_stage (global);
+  if (actor != NULL && !meta_stage_is_focused (global->meta_screen))
+    meta_focus_stage_window (global->meta_screen,
+                             get_current_time_maybe_roundtrip (global));
 
   /* An actor dropped key focus. Focus the default window. */
-  else if (actor == NULL && stage_is_focused (global))
-    focus_default_window (global);
+  else if (actor == NULL && meta_stage_is_focused (global->meta_screen))
+    meta_screen_focus_default_window (global->meta_screen,
+                                      get_current_time_maybe_roundtrip (global));
 }
 
 static void
@@ -621,6 +615,19 @@ focus_actor_changed (ClutterStage *stage,
 {
   CinnamonGlobal *global = user_data;
   sync_stage_window_focus (global);
+}
+
+static void
+sync_input_region (CinnamonGlobal *global)
+{
+  MetaScreen *screen = global->meta_screen;
+
+  if (global->gtk_grab_active)
+    meta_empty_stage_input_region (screen);
+  else if (global->input_mode == CINNAMON_STAGE_INPUT_MODE_FULLSCREEN || !global->input_region || global->has_modal)
+    meta_set_stage_input_region (screen, None);
+  else
+    meta_set_stage_input_region (screen, global->input_region);
 }
 
 /**
@@ -638,32 +645,19 @@ focus_actor_changed (ClutterStage *stage,
  * the stage absorbs all input.
  *
  * Note that whenever a muffin-internal Gtk widget has a pointer grab,
- * Cinnamon behaves as though it was in
- * %CINNAMON_STAGE_INPUT_MODE_NONREACTIVE, to ensure that the widget gets
- * any clicks it is expecting.
+ * Cinnamon goes unresponsive and passes things to the underlying GTK+
+ * widget to ensure that the widget gets any clicks it is expecting.
  */
 void
 cinnamon_global_set_stage_input_mode (CinnamonGlobal         *global,
-                                   CinnamonStageInputMode  mode)
+                                      CinnamonStageInputMode  mode)
 {
-  MetaScreen *screen;
+  if (mode == global->input_mode)
+    return;
 
-  g_return_if_fail (CINNAMON_IS_GLOBAL (global));
-
-  screen = meta_plugin_get_screen (global->plugin);
-
-  if (mode == CINNAMON_STAGE_INPUT_MODE_NONREACTIVE || global->gtk_grab_active)
-    meta_empty_stage_input_region (screen);
-  else if (mode == CINNAMON_STAGE_INPUT_MODE_FULLSCREEN || !global->input_region)
-    meta_set_stage_input_region (screen, None);
-  else
-    meta_set_stage_input_region (screen, global->input_region);
-
-  if (mode != global->input_mode)
-    {
-      global->input_mode = mode;
-      g_object_notify (G_OBJECT (global), "stage-input-mode");
-    }
+  global->input_mode = mode;
+  sync_input_region (global);
+  g_object_notify (G_OBJECT (global), "stage-input-mode");
 }
 
 /**
@@ -817,7 +811,7 @@ cinnamon_global_unset_cursor (CinnamonGlobal  *global)
  */
 void
 cinnamon_global_set_stage_input_region (CinnamonGlobal *global,
-                                     GSList      *rectangles)
+                                        GSList      *rectangles)
 {
   MetaRectangle *rect;
   XRectangle *rects;
@@ -843,10 +837,7 @@ cinnamon_global_set_stage_input_region (CinnamonGlobal *global,
   global->input_region = XFixesCreateRegion (global->xdisplay, rects, nrects);
   g_free (rects);
 
-  /* set_stage_input_mode() will figure out whether or not we
-   * should actually change the input region right now.
-   */
-  cinnamon_global_set_stage_input_mode (global, global->input_mode);
+  sync_input_region (global);
 }
 
 /**
@@ -934,7 +925,7 @@ static gboolean
 global_stage_before_paint (gpointer data)
 {
   cinnamon_perf_log_event (cinnamon_perf_log_get_default (),
-                        "clutter.stagePaintStart");
+                           "clutter.stagePaintStart");
 
   return TRUE;
 }
@@ -943,7 +934,7 @@ static gboolean
 global_stage_after_paint (gpointer data)
 {
   cinnamon_perf_log_event (cinnamon_perf_log_get_default (),
-                        "clutter.stagePaintDone");
+                           "clutter.stagePaintDone");
 
   return TRUE;
 }
@@ -1128,13 +1119,13 @@ _cinnamon_global_set_plugin (CinnamonGlobal *global,
                                          NULL, NULL);
 
   cinnamon_perf_log_define_event (cinnamon_perf_log_get_default(),
-                               "clutter.stagePaintStart",
-                               "Start of stage page repaint",
-                               "");
+                                  "clutter.stagePaintStart",
+                                  "Start of stage page repaint",
+                                  "");
   cinnamon_perf_log_define_event (cinnamon_perf_log_get_default(),
-                               "clutter.stagePaintDone",
-                               "End of stage page repaint",
-                               "");
+                                  "clutter.stagePaintDone",
+                                  "End of stage page repaint",
+                                  "");
 
   g_signal_connect (global->stage, "notify::key-focus",
                     G_CALLBACK (focus_actor_changed), global);
@@ -1202,8 +1193,8 @@ _cinnamon_global_get_gjs_context (CinnamonGlobal *global)
  */
 gboolean
 cinnamon_global_begin_modal (CinnamonGlobal *global,
-                          guint32      timestamp,
-                          MetaModalOptions  options)
+                             guint32      timestamp,
+                             MetaModalOptions  options)
 {
   /* Make it an error to call begin_modal while we already
    * have a modal active. */
@@ -1211,6 +1202,7 @@ cinnamon_global_begin_modal (CinnamonGlobal *global,
     return FALSE;
 
   global->has_modal = meta_plugin_begin_modal (global->plugin, global->stage_xwindow, None, options, timestamp);
+  sync_input_region (global);
   return global->has_modal;
 }
 
@@ -1222,7 +1214,7 @@ cinnamon_global_begin_modal (CinnamonGlobal *global,
  */
 void
 cinnamon_global_end_modal (CinnamonGlobal *global,
-                        guint32      timestamp)
+                           guint32      timestamp)
 {
   ClutterActor *actor;
 
@@ -1234,12 +1226,15 @@ cinnamon_global_end_modal (CinnamonGlobal *global,
 
   /* If the stage window is unfocused, ensure that there's no
    * actor focused on Clutter's side. */
-  if (!stage_is_focused (global))
+  if (!meta_stage_is_focused (global->meta_screen))
     clutter_stage_set_key_focus (global->stage, NULL);
 
   /* An actor dropped key focus. Focus the default window. */
-  else if (get_key_focused_actor (global) && stage_is_focused (global))
-    focus_default_window (global);
+  else if (get_key_focused_actor (global) && meta_stage_is_focused (global->meta_screen))
+    meta_screen_focus_default_window (global->meta_screen,
+                                      get_current_time_maybe_roundtrip (global));
+
+  sync_input_region (global);
 }
 
 /**
@@ -1464,8 +1459,7 @@ grab_notify (GtkWidget *widget, gboolean was_grabbed, gpointer user_data)
   
   global->gtk_grab_active = !was_grabbed;
 
-  /* Update for the new setting of gtk_grab_active */
-  cinnamon_global_set_stage_input_mode (global, global->input_mode);
+  sync_input_region (global);
 }
 
 /**

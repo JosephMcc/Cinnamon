@@ -1205,7 +1205,6 @@ function pushModal(actor, timestamp, options) {
         Meta.disable_unredirect_for_screen(global.screen);
     }
     log("Main.pushModal setting stage_input_mode");
-    global.set_stage_input_mode(Cinnamon.StageInputMode.FULLSCREEN);
 
     modalCount += 1;
     let actorDestroyId = actor.connect('destroy', function() {
@@ -1252,7 +1251,6 @@ function popModal(actor, timestamp) {
     if (focusIndex < 0) {
         global.stage.set_key_focus(null);
         global.end_modal(timestamp);
-        global.set_stage_input_mode(Cinnamon.StageInputMode.NORMAL);
 
         throw new Error('incorrect pop');
     }
@@ -1282,7 +1280,6 @@ function popModal(actor, timestamp) {
         return;
 
     global.end_modal(timestamp);
-    global.set_stage_input_mode(Cinnamon.StageInputMode.NORMAL);
     Meta.enable_unredirect_for_screen(global.screen);
 }
 

@@ -50,7 +50,6 @@ void     cinnamon_global_end_modal              (CinnamonGlobal         *global,
                                               guint32              timestamp);
 
 typedef enum {
-  CINNAMON_STAGE_INPUT_MODE_NONREACTIVE,
   CINNAMON_STAGE_INPUT_MODE_NORMAL,
   CINNAMON_STAGE_INPUT_MODE_FULLSCREEN
 } CinnamonStageInputMode;
