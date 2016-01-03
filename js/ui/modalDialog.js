@@ -363,6 +363,7 @@ ModalDialog.prototype = {
      * inputs.
      */
     pushModal: function (timestamp) {
+        log("modalDialog.pushModal");
         if (this._hasModal)
             return true;
         if (!Main.pushModal(this._group, timestamp))

@@ -411,7 +411,7 @@ function start() {
 
     _startDate = new Date();
 
-    global.stage.connect('captured-event', _stageEventHandler);
+    // global.stage.connect('captured-event', _stageEventHandler);
 
     global.log('loaded at ' + _startDate);
     log('Cinnamon started at ' + _startDate);
@@ -1095,72 +1095,72 @@ function getWindowActorsForWorkspace(workspaceIndex) {
 // are disabled with a global grab. (When there is a global grab, then
 // all key events will be delivered to the stage, so ::captured-event
 // on the stage can be used for global keybindings.)
-function _stageEventHandler(actor, event) {
-    if (modalCount == 0)
-        return false;
-    if (event.type() != Clutter.EventType.KEY_PRESS) {
-        if(!popup_rendering_actor || event.type() != Clutter.EventType.BUTTON_RELEASE)
-            return false;
-        return (event.get_source() && popup_rendering_actor.contains(event.get_source()));
-    }
+// function _stageEventHandler(actor, event) {
+//     if (modalCount == 0)
+//         return false;
+//     if (event.type() != Clutter.EventType.KEY_PRESS) {
+//         if(!popup_rendering_actor || event.type() != Clutter.EventType.BUTTON_RELEASE)
+//             return false;
+//         return (event.get_source() && popup_rendering_actor.contains(event.get_source()));
+//     }
 
-    let symbol = event.get_key_symbol();
-    let keyCode = event.get_key_code();
-    let modifierState = Cinnamon.get_event_state(event);
+//     let symbol = event.get_key_symbol();
+//     let keyCode = event.get_key_code();
+//     let modifierState = Cinnamon.get_event_state(event);
 
-    // This relies on the fact that Clutter.ModifierType is the same as Gdk.ModifierType
-    let action = global.display.get_keybinding_action(keyCode, modifierState);
+//     // This relies on the fact that Clutter.ModifierType is the same as Gdk.ModifierType
+//     let action = global.display.get_keybinding_action(keyCode, modifierState);
 
-    if (action == Meta.KeyBindingAction.CUSTOM) {
-        global.display.keybinding_action_invoke_by_code(keyCode, modifierState);
-    }
+//     if (action == Meta.KeyBindingAction.CUSTOM) {
+//         global.display.keybinding_action_invoke_by_code(keyCode, modifierState);
+//     }
 
-    // Other bindings are only available when the overview is up and no modal dialog is present
-    if (((!overview.visible && !expo.visible) || modalCount > 1))
-        return false;
+//     // Other bindings are only available when the overview is up and no modal dialog is present
+//     if (((!overview.visible && !expo.visible) || modalCount > 1))
+//         return false;
 
-    // This isn't a Meta.KeyBindingAction yet
-    if (symbol == Clutter.Super_L || symbol == Clutter.Super_R) {
-        overview.hide();
-        expo.hide();
-        return true;
-    }
+//     // This isn't a Meta.KeyBindingAction yet
+//     if (symbol == Clutter.Super_L || symbol == Clutter.Super_R) {
+//         overview.hide();
+//         expo.hide();
+//         return true;
+//     }
        
-    if (action == Meta.KeyBindingAction.SWITCH_PANELS) {
-        //Used to call the ctrlalttabmanager in Gnome Shell
-        return true;
-    }
+//     if (action == Meta.KeyBindingAction.SWITCH_PANELS) {
+//         //Used to call the ctrlalttabmanager in Gnome Shell
+//         return true;
+//     }
 
-    switch (action) {
-        // left/right would effectively act as synonyms for up/down if we enabled them;
-        // but that could be considered confusing; we also disable them in the main view.
-        //
-         case Meta.KeyBindingAction.WORKSPACE_LEFT:
-             wm.actionMoveWorkspaceLeft();
-             return true;
-         case Meta.KeyBindingAction.WORKSPACE_RIGHT:
-             wm.actionMoveWorkspaceRight();
-             return true;
-        case Meta.KeyBindingAction.WORKSPACE_UP:
-            overview.hide();   
-            expo.hide();                  
-            return true;
-        case Meta.KeyBindingAction.WORKSPACE_DOWN:
-            overview.hide();
-            expo.hide();
-            return true;
-        case Meta.KeyBindingAction.PANEL_RUN_DIALOG:
-        case Meta.KeyBindingAction.COMMAND_2:
-            getRunDialog().open();
-            return true;
-        case Meta.KeyBindingAction.PANEL_MAIN_MENU:
-            overview.hide();
-            expo.hide();
-            return true;
-    }
+//     switch (action) {
+//         // left/right would effectively act as synonyms for up/down if we enabled them;
+//         // but that could be considered confusing; we also disable them in the main view.
+//         //
+//          case Meta.KeyBindingAction.WORKSPACE_LEFT:
+//              wm.actionMoveWorkspaceLeft();
+//              return true;
+//          case Meta.KeyBindingAction.WORKSPACE_RIGHT:
+//              wm.actionMoveWorkspaceRight();
+//              return true;
+//         case Meta.KeyBindingAction.WORKSPACE_UP:
+//             overview.hide();   
+//             expo.hide();                  
+//             return true;
+//         case Meta.KeyBindingAction.WORKSPACE_DOWN:
+//             overview.hide();
+//             expo.hide();
+//             return true;
+//         case Meta.KeyBindingAction.PANEL_RUN_DIALOG:
+//         case Meta.KeyBindingAction.COMMAND_2:
+//             getRunDialog().open();
+//             return true;
+//         case Meta.KeyBindingAction.PANEL_MAIN_MENU:
+//             overview.hide();
+//             expo.hide();
+//             return true;
+//     }
 
-    return false;
-}
+//     return false;
+// }
 
 function _findModal(actor) {
     for (let i = 0; i < modalActorFocusStack.length; i++) {
@@ -1193,6 +1193,7 @@ function _findModal(actor) {
  * Returns (boolean): true iff we successfully acquired a grab or already had one
  */
 function pushModal(actor, timestamp, options) {
+    log("Main.pushModal");
     if (timestamp == undefined)
         timestamp = global.get_current_time();
 
@@ -1203,7 +1204,7 @@ function pushModal(actor, timestamp, options) {
         }
         Meta.disable_unredirect_for_screen(global.screen);
     }
-
+    log("Main.pushModal setting stage_input_mode");
     global.set_stage_input_mode(Cinnamon.StageInputMode.FULLSCREEN);
 
     modalCount += 1;
