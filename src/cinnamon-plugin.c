@@ -451,7 +451,7 @@ gnome_cinnamon_plugin_xevent_filter (MetaPlugin *plugin,
   if (_cinnamon_global_check_xdnd_event (cinnamon_plugin->global, xev))
     return TRUE;
 
-  return clutter_x11_handle_event (xev) != CLUTTER_X11_FILTER_CONTINUE;
+  return FALSE;
 }
 
 static const
