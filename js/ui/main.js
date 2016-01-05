@@ -350,11 +350,13 @@ function start() {
     global.reparentActor(global.bottom_window_group, uiGroup);
     uiGroup.add_actor(deskletContainer.actor);
     global.reparentActor(global.window_group, uiGroup);
+    global.stage.add_actor(uiGroup);
     global.reparentActor(global.overlay_group, uiGroup);
 
-    global.stage.add_actor(uiGroup);
+    // global.stage.add_actor(uiGroup);
 
-    global.reparentActor(global.top_window_group, global.stage);
+    // global.reparentActor(global.top_window_group, global.stage);
+    global.reparentActor(global.top_window_group, uiGroup);
 
     layoutManager = new Layout.LayoutManager();
 

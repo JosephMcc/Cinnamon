@@ -140,7 +140,7 @@ Applet.prototype = {
      * @instance_id (int): instance id of the applet
      */
     _init: function(orientation, panel_height, instance_id) {
-        this.actor = new St.BoxLayout({ style_class: 'applet-box', reactive: true, track_hover: true });        
+        this.actor = new St.BoxLayout({ style_class: 'applet-box', reactive: true, track_hover: true, can_focus: true });        
         this._applet_tooltip = new Tooltips.PanelItemTooltip(this, "", orientation);                                        
         this.actor.connect('button-press-event', Lang.bind(this, this._onButtonPressEvent));  
 
