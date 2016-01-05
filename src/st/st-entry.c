@@ -63,7 +63,6 @@
 #include "st-icon.h"
 #include "st-widget.h"
 #include "st-texture-cache.h"
-#include "st-marshal.h"
 #include "st-clipboard.h"
 #include "st-private.h"
 
@@ -909,8 +908,7 @@ st_entry_class_init (StEntryClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   G_STRUCT_OFFSET (StEntryClass, primary_icon_clicked),
-                  NULL, NULL,
-                  _st_marshal_VOID__VOID,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
   /**
    * StEntry::secondary-icon-clicked:
@@ -922,8 +920,7 @@ st_entry_class_init (StEntryClass *klass)
                   G_TYPE_FROM_CLASS (klass),
                   G_SIGNAL_RUN_LAST,
                   G_STRUCT_OFFSET (StEntryClass, secondary_icon_clicked),
-                  NULL, NULL,
-                  _st_marshal_VOID__VOID,
+                  NULL, NULL, NULL,
                   G_TYPE_NONE, 0);
 }
 
