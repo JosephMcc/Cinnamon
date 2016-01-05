@@ -692,7 +692,7 @@ InfoOSD.prototype = {
             let label = new St.Label({text: text});
             this.actor.add(label);
         }
-        Main.layoutManager.addChrome(this.actor, {visibleInFullscreen: false, affectsInputRegion: false});
+        Main.uiGroup.add_actor(this.actor);
     },
 
     /**

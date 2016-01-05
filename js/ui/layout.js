@@ -487,7 +487,7 @@ Signals.addSignalMethods(LayoutManager.prototype);
 const defaultParams = {
     visibleInFullscreen: false,
     affectsStruts: false,
-    affectsInputRegion: true,
+    // affectsInputRegion: true,
     addToWindowgroup: false,
     doNotAdd: false
 };
@@ -537,9 +537,10 @@ Chrome.prototype = {
     },
 
     addActor: function(actor, params) {
-        let actorData = Params.parse(params, defaultParams);
-        if (actorData.addToWindowgroup) global.window_group.add_actor(actor);
-        else if (!actorData.doNotAdd) Main.uiGroup.add_actor(actor);
+        Main.uiGroup.add_actor(actor);
+        // let actorData = Params.parse(params, defaultParams);
+        // if (actorData.addToWindowgroup) global.window_group.add_actor(actor);
+        // else if (!actorData.doNotAdd) Main.uiGroup.add_actor(actor);
         this._trackActor(actor, params);
     },
 
@@ -607,8 +608,9 @@ Chrome.prototype = {
 
         let actorData = Params.parse(params, defaultParams);
         actorData.actor = actor;
-        if (actorData.addToWindowgroup) actorData.isToplevel = actor.get_parent() == global.window_group;
-        else actorData.isToplevel = actor.get_parent() == Main.uiGroup;
+        actorData.isToplevel = actor.get_parent() == Main.uiGroup;
+        // if (actorData.addToWindowgroup) actorData.isToplevel = actor.get_parent() == global.window_group;
+        // else actorData.isToplevel = actor.get_parent() == Main.uiGroup;
         actorData.visibleId = actor.connect('notify::visible',
                                             Lang.bind(this, this._queueUpdateRegions));
         actorData.allocationId = actor.connect('notify::allocation',
@@ -855,7 +857,7 @@ Chrome.prototype = {
 
         for (let i = 0; i < this._trackedActors.length; i++) {
             let actorData = this._trackedActors[i];
-            if (!(actorData.affectsInputRegion && wantsInputRegion) && !actorData.affectsStruts)
+            if (!wantsInputRegion && !actorData.affectsStruts)
                 continue;
 
             let [x, y] = actorData.actor.get_transformed_position();
@@ -864,7 +866,7 @@ Chrome.prototype = {
             y = Math.round(y);
             w = Math.round(w);
             h = Math.round(h);
-            if (actorData.affectsInputRegion && wantsInputRegion) {
+            if (wantsInputRegion) {
                 let rect = new Meta.Rectangle({ x: x, y: y, width: w, height: h});
 
                 if (actorData.actor.get_paint_visibility() &&

@@ -863,7 +863,7 @@ WindowManager.prototype = {
         this._workspace_osd_array.push(osd);
         osd.set_text(Main.getWorkspaceName(current_workspace_index));
         osd.set_opacity = 0;
-        Main.layoutManager.addChrome(osd, { visibleInFullscreen: false, affectsInputRegion: false });
+        Main.uiGroup.add_actor(osd);
         /*
          * This aligns the osd edges to the minimum/maximum values from gsettings,
          * if those are selected to be used. For values in between minimum/maximum,
