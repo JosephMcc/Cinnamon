@@ -1272,8 +1272,8 @@ st_box_layout_insert_actor (StBoxLayout  *self,
                             ClutterActor *actor,
                             int           pos)
 {
-  clutter_container_add_actor((ClutterContainer*) self, actor);
-  st_container_move_child (ST_CONTAINER (self), actor, pos);
+  clutter_actor_insert_child_at_index (actor, pos);
+
 }
 
 /**
@@ -1291,8 +1291,5 @@ st_box_layout_insert_before (StBoxLayout  *self,
                              ClutterActor *actor,
                              ClutterActor *sibling)
 {
-  g_return_if_fail (ST_IS_BOX_LAYOUT (self));
-
-  clutter_container_add_actor(CLUTTER_CONTAINER (self), actor);
-  st_container_move_before (ST_CONTAINER (self), actor, sibling);
+  clutter_actor_insert_child_below (actor, sibling);
 }
