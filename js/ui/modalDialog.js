@@ -169,7 +169,7 @@ ModalDialog.prototype = {
     setButtons: function(buttons) {
         let hadChildren = this._buttonLayout.get_children() > 0;
 
-        this._buttonLayout.destroy_children();
+        this._buttonLayout.destroy_all_children();
         this._actionKeys = {};
         let focusSetExplicitly = false;
 

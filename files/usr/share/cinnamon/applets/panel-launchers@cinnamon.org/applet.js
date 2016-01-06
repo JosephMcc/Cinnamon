@@ -391,7 +391,7 @@ MyApplet.prototype = {
     },
 
     reload: function() {
-        this.myactor.destroy_children();
+        this.myactor.destroy_all_children();
         this._launchers = new Array();
         this._settings_proxy = new Array();
 
