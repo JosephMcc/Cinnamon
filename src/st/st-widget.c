@@ -2125,7 +2125,7 @@ st_widget_real_navigate_focus (StWidget         *widget,
  * itself, or its first descendant in the order implied by
  * @direction. If @from is outside of @widget, it behaves as if it was
  * a descendant if @direction is one of the directional arrows and as
-+ * if it was %NULL otherwise.
+ * if it was %NULL otherwise.
  *
  * If a container type is marked #StWidget:can-focus, the expected
  * behavior is that it will only take up a single slot on the focus
