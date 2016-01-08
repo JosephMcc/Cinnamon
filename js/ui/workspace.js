@@ -568,7 +568,7 @@ WindowOverlay.prototype = {
 
         let settings = new Gio.Settings({ schema_id: BUTTON_LAYOUT_SCHEMA });
         let layout = settings.get_string(BUTTON_LAYOUT_KEY);
-        let rtl = St.Widget.get_default_direction() == St.TextDirection.RTL;
+        let rtl = Clutter.get_default_text_direction() == Clutter.TextDirection.RTL;
 
         let split = layout.split(":");
         let side;

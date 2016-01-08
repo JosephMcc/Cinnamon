@@ -1540,7 +1540,7 @@ ExpoThumbnailsBox.prototype = {
 
     allocate: function(actor, box, flags) {
         this.box = box;
-        let rtl = (St.Widget.get_default_direction () == St.TextDirection.RTL);
+        let rtl = (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL);
 
         if (this.thumbnails.length == 0) // not visible
             return;

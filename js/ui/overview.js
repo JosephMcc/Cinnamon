@@ -111,7 +111,7 @@ Overview.prototype = {
                 let direction;
                 if (this._scrollDirection == SwipeScrollDirection.HORIZONTAL) {
                     direction = stageX > this._dragStartX ? -1 : 1;
-                    if (St.Widget.get_default_direction() == St.TextDirection.RTL)
+                    if (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL)
                         direction *= -1;
                 } else {
                     direction = stageY > this._dragStartY ? -1 : 1;
@@ -203,7 +203,7 @@ Overview.prototype = {
                     return true;
 
                 if (this._scrollDirection == SwipeScrollDirection.HORIZONTAL) {
-                    if (St.Widget.get_default_direction() == St.TextDirection.RTL)
+                    if (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL)
                         this._scrollAdjustment.value -= (dx / primary.width) * this._scrollAdjustment.page_size;
                     else
                         this._scrollAdjustment.value += (dx / primary.width) * this._scrollAdjustment.page_size;

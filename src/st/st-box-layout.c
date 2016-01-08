@@ -622,7 +622,7 @@ st_box_layout_allocate (ClutterActor          *actor,
   gfloat expand_amount, shrink_amount;
   BoxChildShrink *shrinks = NULL;
                  // Home-made logical xor
-  gboolean flip = (!(st_widget_get_direction (ST_WIDGET (actor)) == ST_TEXT_DIRECTION_RTL) != !priv->is_align_end)
+  gboolean flip = (!(clutter_actor_get_text_direction (actor) == CLUTTER_TEXT_DIRECTION_RTL) != !priv->is_align_end)
                    && (!priv->is_vertical);
   gboolean reverse_order = (!priv->is_align_end != !priv->is_pack_start);
   ClutterActor *child;

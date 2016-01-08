@@ -440,7 +440,7 @@ Notification.prototype = {
         this._bannerBodyText = null;
         this._bannerBodyMarkup = false;
         this._titleFitsInBannerMode = true;
-        this._titleDirection = St.TextDirection.NONE;
+        this._titleDirection = Clutter.TextDirection.DEFAULT;
         this._spacing = 0;
 
         this._imageBin = null;
@@ -590,9 +590,9 @@ Notification.prototype = {
         this._timeLabel.clutter_text.set_markup(this._timestamp.toLocaleTimeString());
         this._timeLabel.hide();
         if (Pango.find_base_dir(title, -1) == Pango.Direction.RTL)
-            this._titleDirection = St.TextDirection.RTL;
+            this._titleDirection = Clutter.TextDirection.RTL;
         else
-            this._titleDirection = St.TextDirection.LTR;
+            this._titleDirection = Clutter.TextDirection.LTR;
 
         // Let the title's text direction control the overall direction
         // of the notification - in case where different scripts are used
@@ -600,7 +600,7 @@ Notification.prototype = {
         // arguably for action buttons as well. Labels other than the title
         // will be allocated at the available width, so that their alignment
         // is done correctly automatically.
-        this._table.set_direction(this._titleDirection);
+        this._table.set_text_direction(this._titleDirection);
 
         // Unless the notification has custom content, we save this._bannerBodyText
         // to add it to the content of the notification if the notification is
@@ -861,7 +861,7 @@ Notification.prototype = {
         let timeBox = new Clutter.ActorBox();
         let titleBoxW = Math.min(titleNatW, availWidth);
         let timeBoxW = Math.min(timeNatW, availWidth);
-        if (this._titleDirection == St.TextDirection.RTL) {
+        if (this._titleDirection == Clutter.TextDirection.RTL) {
             titleBox.x1 = availWidth - titleBoxW;
             titleBox.x2 = availWidth;
             timeBox.x1 = availWidth - timeBoxW;
@@ -896,7 +896,7 @@ Notification.prototype = {
         } else {
             let bannerBox = new Clutter.ActorBox();
 
-            if (this._titleDirection == St.TextDirection.RTL) {
+            if (this._titleDirection == Clutter.TextDirection.RTL) {
                 bannerBox.x1 = 0;
                 bannerBox.x2 = titleBox.x1 - this._spacing;
 
@@ -1084,9 +1084,9 @@ Source.prototype = {
         let childBox = new Clutter.ActorBox();
 
         let [minWidth, minHeight, naturalWidth, naturalHeight] = this._counterBin.get_preferred_size();
-        let direction = this.actor.get_direction();
+        let direction = this.actor.get_text_direction();
 
-        if (direction == St.TextDirection.LTR) {
+        if (direction == Clutter.TextDirection.LTR) {
             // allocate on the right in LTR
             childBox.x1 = box.x2 - naturalWidth;
             childBox.x2 = box.x2;

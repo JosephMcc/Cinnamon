@@ -109,7 +109,7 @@ HotCorner.prototype = {
 
         this.actor.add_actor(this._corner);
 
-        if (St.Widget.get_default_direction() == St.TextDirection.RTL) {
+        if (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL) {
             this._corner.set_position(this.actor.width - this._corner.width, 0);
             this.actor.set_anchor_point_from_gravity(Clutter.Gravity.NORTH_EAST);
         } else {

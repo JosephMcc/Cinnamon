@@ -25,7 +25,7 @@ function LayoutManager() {
 
 LayoutManager.prototype = {
     _init: function () {
-        this._rtl = (St.Widget.get_default_direction() == St.TextDirection.RTL);
+        this._rtl = (Clutter.get_default_text_direction() == Clutter.TextDirection.RTL);
         this.monitors = [];
         this.primaryMonitor = null;
         this.primaryIndex = -1;

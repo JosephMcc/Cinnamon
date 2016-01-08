@@ -978,7 +978,7 @@ PanelCorner.prototype = {
 
         let rtlAwareContainer = this._box instanceof St.BoxLayout;
         if (rtlAwareContainer &&
-            this._box.get_direction() == St.TextDirection.RTL) {
+            this._box.get_text_direction() == Clutter.TextDirection.RTL) {
             if (this._side == St.Side.LEFT)
                 side = St.Side.RIGHT;
             else if (this._side == St.Side.RIGHT)
@@ -1404,7 +1404,7 @@ Panel.prototype = {
         this.actor.add_actor(this._rightBox);
         this._rightBoxDNDHandler = new PanelZoneDNDHandler(this._rightBox);
 
-        if (this.actor.get_direction() == St.TextDirection.RTL) {
+        if (this.actor.get_text_direction() == Clutter.TextDirection.RTL) {
             this._leftCorner = new PanelCorner(this._rightBox, St.Side.LEFT);
             this._rightCorner = new PanelCorner(this._leftBox, St.Side.RIGHT);
         } else {
@@ -1810,7 +1810,7 @@ Panel.prototype = {
 
         let leftBoundary = leftWidth;
         let rightBoundary = allocWidth - rightWidth;
-        if (this.actor.get_direction() == St.TextDirection.RTL) {
+        if (this.actor.get_text_direction() == Clutter.TextDirection.RTL) {
             leftBoundary = allocWidth - leftWidth;
             rightBoundary = rightWidth;
         }
@@ -1819,7 +1819,7 @@ Panel.prototype = {
 
         childBox.y1 = 0;
         childBox.y2 = allocHeight;
-        if (this.actor.get_direction() == St.TextDirection.RTL) {
+        if (this.actor.get_text_direction() == Clutter.TextDirection.RTL) {
             childBox.x1 = leftBoundary;
             childBox.x2 = allocWidth;
         } else {
@@ -1828,7 +1828,7 @@ Panel.prototype = {
         }
         this._leftBox.allocate(childBox, flags);
 
-        if (this.actor.get_direction() == St.TextDirection.RTL) {
+        if (this.actor.get_text_direction() == Clutter.TextDirection.RTL) {
             childBox.x1 = rightBoundary;
             childBox.x2 = leftBoundary;
         } else {
@@ -1837,7 +1837,7 @@ Panel.prototype = {
         }
         this._centerBox.allocate(childBox, flags);
 
-        if (this.actor.get_direction() == St.TextDirection.RTL) {
+        if (this.actor.get_text_direction() == Clutter.TextDirection.RTL) {
             childBox.x1 = 0;
             childBox.x2 = rightBoundary;
         } else {

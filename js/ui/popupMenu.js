@@ -338,7 +338,7 @@ PopupBaseMenuItem.prototype = {
 
     _allocate: function(actor, box, flags) {
         let height = box.y2 - box.y1;
-        let direction = this.actor.get_direction();
+        let direction = this.actor.get_text_direction();
 
         if (this._dot) {
             // The dot is placed outside box
@@ -348,7 +348,7 @@ PopupBaseMenuItem.prototype = {
             let dotBox = new Clutter.ActorBox();
             let dotWidth = Math.round(box.x1 / 2);
 
-            if (direction == St.TextDirection.LTR) {
+            if (direction == Clutter.TextDirection.LTR) {
                 dotBox.x1 = Math.round(box.x1 / 4);
                 dotBox.x2 = dotBox.x1 + dotWidth;
             } else {
@@ -361,7 +361,7 @@ PopupBaseMenuItem.prototype = {
         }
 
         let x;
-        if (direction == St.TextDirection.LTR)
+        if (direction == Clutter.TextDirection.LTR)
             x = box.x1;
         else
             x = box.x2;
@@ -382,7 +382,7 @@ PopupBaseMenuItem.prototype = {
             let availWidth, extraWidth;
             if (cols) {
                 if (child.span == -1) {
-                    if (direction == St.TextDirection.LTR)
+                    if (direction == Clutter.TextDirection.LTR)
                         availWidth = box.x2 - x;
                     else
                         availWidth = x - box.x1;
@@ -397,7 +397,7 @@ PopupBaseMenuItem.prototype = {
                 extraWidth = availWidth - naturalWidth;
             } else {
                 if (child.span == -1) {
-                    if (direction == St.TextDirection.LTR)
+                    if (direction == Clutter.TextDirection.LTR)
                         availWidth = box.x2 - x;
                     else
                         availWidth = x - box.x1;
@@ -407,7 +407,7 @@ PopupBaseMenuItem.prototype = {
                 extraWidth = 0;
             }
 
-            if (direction == St.TextDirection.LTR) {
+            if (direction == Clutter.TextDirection.LTR) {
                 if (child.expand) {
                     childBox.x1 = x;
                     childBox.x2 = x + availWidth;
@@ -453,7 +453,7 @@ PopupBaseMenuItem.prototype = {
 
             child.actor.allocate(childBox, flags);
 
-            if (direction == St.TextDirection.LTR)
+            if (direction == Clutter.TextDirection.LTR)
                 x += availWidth + this._spacing;
             else
                 x -= availWidth + this._spacing;
