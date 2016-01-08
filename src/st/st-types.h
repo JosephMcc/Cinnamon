@@ -43,8 +43,6 @@ typedef enum {
 typedef enum {
   ST_ICON_SYMBOLIC,
   ST_ICON_FULLCOLOR,
-  ST_ICON_APPLICATION,
-  ST_ICON_DOCUMENT,
   ST_ICON_FADED
 } StIconType;
 
