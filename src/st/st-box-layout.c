@@ -754,6 +754,7 @@ st_box_layout_allocate (ClutterActor          *actor,
       gfloat child_min, child_nat, child_allocated;
       gboolean xfill, yfill, expand, fixed;
       StAlign xalign, yalign;
+      gdouble xalign_f, yalign_f;
 
       if (!CLUTTER_ACTOR_IS_VISIBLE (child))
         goto next_child;
@@ -772,6 +773,8 @@ st_box_layout_allocate (ClutterActor          *actor,
                                    "y-align", &yalign,
                                    "expand", &expand,
                                    NULL);
+
+      _st_get_align_factors (xalign, yalign, &xalign_f, &yalign_f);
 
       if (priv->is_vertical)
         {
@@ -804,9 +807,9 @@ st_box_layout_allocate (ClutterActor          *actor,
           child_box.x1 = content_box.x1;
           child_box.x2 = content_box.x2;
 
-          _st_allocate_fill (ST_WIDGET (actor), child, &child_box,
-                             xalign, yalign, xfill, yfill);
-          clutter_actor_allocate (child, &child_box, flags);
+          clutter_actor_allocate_align_fill (child, &child_box,
+                                             xalign_f, yalign_f,
+                                             xfill, yfill, flags);
 
         }
       else
@@ -825,9 +828,9 @@ st_box_layout_allocate (ClutterActor          *actor,
           child_box.y1 = content_box.y1;
           child_box.y2 = content_box.y2;
 
-          _st_allocate_fill (ST_WIDGET (actor), child, &child_box,
-                             xalign, yalign, xfill, yfill);
-          clutter_actor_allocate (child, &child_box, flags);
+          clutter_actor_allocate_align_fill (child, &child_box,
+                                             xalign_f, yalign_f,
+                                             xfill, yfill, flags);
         }
 
       if (flip)
