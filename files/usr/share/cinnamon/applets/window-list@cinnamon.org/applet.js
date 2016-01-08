@@ -1053,7 +1053,7 @@ MyApplet.prototype = {
          * default, so move it to the start if needed */
         if (alert) {
             if (metaWindow.get_workspace().index() < global.screen.get_active_workspace_index())
-                this.actor.move_child(appButton.actor, 0);
+                this.actor.set_child_at_index(appButton.actor, 0);
         } else {
             if (metaWindow.get_workspace() != global.screen.get_active_workspace())
                 appButton.actor.hide();
@@ -1097,8 +1097,8 @@ MyApplet.prototype = {
             this.actor.insert_child_at_index(this._dragPlaceholder.actor,
                                              this._dragPlaceholderPos);
         } else {
-            this.actor.move_child(this._dragPlaceholder.actor,
-                                  this._dragPlaceholderPos);
+            this.actor.set_child_at_index(this._dragPlaceholder.actor,
+                                          this._dragPlaceholderPos);
         }
 
         return DND.DragMotionResult.MOVE_DROP;
@@ -1108,7 +1108,7 @@ MyApplet.prototype = {
         if (!(source instanceof AppMenuButton)) return false;
         if (this._dragPlaceholderPos == undefined) return false;
 
-        this.actor.move_child(source.actor, this._dragPlaceholderPos);
+        this.actor.set_child_at_index(source.actor, this._dragPlaceholderPos);
 
         return true;
     },
