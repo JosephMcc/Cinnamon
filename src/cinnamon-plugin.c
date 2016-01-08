@@ -43,9 +43,6 @@
 #include "cinnamon-perf-log.h"
 #include "cinnamon-wm-private.h"
 
-static void gnome_cinnamon_plugin_dispose     (GObject *object);
-static void gnome_cinnamon_plugin_finalize    (GObject *object);
-
 static void gnome_cinnamon_plugin_start            (MetaPlugin          *plugin);
 static void gnome_cinnamon_plugin_minimize         (MetaPlugin          *plugin,
                                                  MetaWindowActor     *actor);
@@ -136,11 +133,7 @@ G_DEFINE_TYPE (CinnamonPlugin, gnome_cinnamon_plugin, META_TYPE_PLUGIN)
 static void
 gnome_cinnamon_plugin_class_init (CinnamonPluginClass *klass)
 {
-  GObjectClass      *gobject_class = G_OBJECT_CLASS (klass);
   MetaPluginClass *plugin_class  = META_PLUGIN_CLASS (klass);
-
-  gobject_class->dispose         = gnome_cinnamon_plugin_dispose;
-  gobject_class->finalize        = gnome_cinnamon_plugin_finalize;
 
   plugin_class->start            = gnome_cinnamon_plugin_start;
   plugin_class->map              = gnome_cinnamon_plugin_map;
@@ -238,18 +231,6 @@ gnome_cinnamon_plugin_start (MetaPlugin *plugin)
        */
       exit (1);
     }
-}
-
-static void
-gnome_cinnamon_plugin_dispose (GObject *object)
-{
-  G_OBJECT_CLASS(gnome_cinnamon_plugin_parent_class)->dispose (object);
-}
-
-static void
-gnome_cinnamon_plugin_finalize (GObject *object)
-{
-  G_OBJECT_CLASS(gnome_cinnamon_plugin_parent_class)->finalize (object);
 }
 
 static CinnamonWM *
