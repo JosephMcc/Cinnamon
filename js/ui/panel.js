@@ -3120,10 +3120,16 @@ Panel.prototype = {
         Main.layoutManager._windowsRestacked();
 
         let animationTime = AUTOHIDE_ANIMATION_TIME;
+        let theme_node = this.actor.get_theme_node();
+        let shadow = theme_node.get_box_shadow();
+        let shadowBox = new Clutter.ActorBox;
+        let actorBox = new Clutter.ActorBox;
+        shadow.get_box(actorBox, shadowBox);
 
         if (this.panelPosition == PanelLoc.top || this.panelPosition == PanelLoc.bottom) { // horizontal panel, animation on y
             let height = this.actor.get_height();
             let y;
+
             switch (this.panelPosition) {
                 case PanelLoc.top:
                     y = this.monitor.y; // target end position when y = 0
@@ -3163,7 +3169,11 @@ Panel.prototype = {
                                         break;
                                 }
 
-                                this.actor.set_clip(0, y, this.monitor.width, height);
+                                if (panelPosition == PanelLoc.top) {
+                                    this.actor.set_clip(0, y, this.monitor.width, height + shadowBox.y2);
+                                } else {
+                                    this.actor.set_clip(0, y + shadowBox.y1, this.monitor.width, height + shadowBox.y2);
+                                }
                             }),
                             onUpdateParams: [jj, this.panelPosition]
                             }); 
@@ -3234,7 +3244,12 @@ Panel.prototype = {
                                         x = 0;
                                         break;
                                 }
-                                this.actor.set_clip(x, 0, width, this.monitor.height); 
+
+                                if (panelPosition == PanelLoc.left) {
+                                    this.actor.set_clip(x, 0, width + shadowBox.x2, this.monitor.height);
+                                } else {
+                                    this.actor.set_clip(x + shadowBox.x1, 0, width + shadowBox.x2, this.monitor.height);
+                                } 
                             }),
                             onUpdateParams: [jj, this.panelPosition]
                             }); 
@@ -3281,6 +3296,7 @@ Panel.prototype = {
         if (this.panelPosition == PanelLoc.top || this.panelPosition == PanelLoc.bottom) { // horizontal panels, animation on y
             let height = this.actor.get_height();
             let y;
+
             switch (this.panelPosition) {
                 case PanelLoc.top:
                     y = this.monitor.y - height + 1;  // final position, note the +1 to leave a vestigial panel that can be entered to 
