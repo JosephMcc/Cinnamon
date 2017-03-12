@@ -116,6 +116,7 @@ cinnamon_public_headers_h =		\
 	cinnamon-screenshot.h	\
 	cinnamon-slicer.h			\
 	cinnamon-stack.h			\
+	cinnamon-tile-preview.h 	\
 	cinnamon-tray-icon.h		\
 	cinnamon-tray-manager.h		\
 	cinnamon-util.h			\
@@ -146,6 +147,7 @@ libcinnamon_la_SOURCES =		\
 	cinnamon-screenshot.c		\
 	cinnamon-slicer.c			\
 	cinnamon-stack.c			\
+	cinnamon-tile-preview.c 	\
 	cinnamon-tray-icon.c		\
 	cinnamon-tray-manager.c		\
 	cinnamon-util.c			\

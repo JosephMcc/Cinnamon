@@ -97,95 +97,6 @@ function getWindowDimmer(actor) {
     return actor._windowDimmer;
 }
 
-function TilePreview() {
-    this._init();
-}
-
-TilePreview.prototype = {
-    _init: function() {
-        this.actor = new St.Bin({ style_class: 'tile-preview', important: true });
-        global.window_group.add_actor(this.actor);
-
-        this._snapQueued = 0;
-        this._reset();
-        this._showing = false;
-    },
-
-    show: function(window, tileRect, monitorIndex, snapQueued) {
-        let windowActor = window.get_compositor_private();
-        if (!windowActor)
-            return;
-
-        if (this._snapQueued != snapQueued) {
-            this._updateStyle();
-            this._snapQueued = snapQueued;
-        }
-
-        if (this._rect && this._rect.equal(tileRect))
-            return;
-
-        let changeMonitor = (this._monitorIndex == -1 ||
-                             this._monitorIndex != monitorIndex);
-
-        this._monitorIndex = monitorIndex;
-        this._rect = tileRect;
-        let monitor = Main.layoutManager.monitors[monitorIndex];
-
-        if (!this._showing || changeMonitor) {
-            let monitorRect = new Meta.Rectangle({ x: monitor.x,
-                                                   y: monitor.y,
-                                                   width: monitor.width,
-                                                   height: monitor.height });
-            let [, rect] = window.get_outer_rect().intersect(monitorRect);
-            this.actor.set_size(rect.width, rect.height);
-            this.actor.set_position(rect.x, rect.y);
-            this.actor.opacity = 0;
-        }
-
-        this._showing = true;
-        this.actor.show();
-        windowActor.raise_top();
-
-        Tweener.addTween(this.actor,
-                         { x: tileRect.x,
-                           y: tileRect.y,
-                           width: tileRect.width,
-                           height: tileRect.height,
-                           opacity: 255,
-                           time: WINDOW_ANIMATION_TIME,
-                           transition: 'easeOutQuad' });
-    },
-
-    hide: function() {
-        if (!this._showing)
-            return;
-
-        this._showing = false;
-        Tweener.addTween(this.actor,
-                         { opacity: 0,
-                           time: WINDOW_ANIMATION_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: Lang.bind(this, this._reset) });
-    },
-
-    _reset: function() {
-        this.actor.hide();
-        this._rect = null;
-        this._monitorIndex = -1;
-    },
-
-    _updateStyle: function() {
-        if (this.actor.has_style_class_name('snap'))
-            this.actor.remove_style_class_name('snap');
-        else
-            this.actor.add_style_class_name('snap');
-    },
-
-    destroy: function() {
-        this.actor.destroy();
-    }
-};
-
 function HudPreview() {
     this._init();
 }
@@ -424,7 +335,6 @@ WindowManager.prototype = {
         this._snapOsd = null;
         this._workspace_osd_array = [];
 
-        this._tilePreview = null;
         this._hudPreview = null;
 
         this._dimmedWindows = [];
@@ -438,8 +348,6 @@ WindowManager.prototype = {
         this._cinnamonwm.connect('maximize', Lang.bind(this, this._maximizeWindow));
         this._cinnamonwm.connect('unmaximize', Lang.bind(this, this._unmaximizeWindow));
         this._cinnamonwm.connect('tile', Lang.bind(this, this._tileWindow));
-        this._cinnamonwm.connect('show-tile-preview', Lang.bind(this, this._showTilePreview));
-        this._cinnamonwm.connect('hide-tile-preview', Lang.bind(this, this._hideTilePreview));
         this._cinnamonwm.connect('show-hud-preview', Lang.bind(this, this._showHudPreview));
         this._cinnamonwm.connect('hide-hud-preview', Lang.bind(this, this._hideHudPreview));
         this._cinnamonwm.connect('map', Lang.bind(this, this._mapWindow));
@@ -814,20 +722,6 @@ WindowManager.prototype = {
         Tweener.addTween(this, {time: WINDOW_ANIMATION_TIME, onComplete: function() {
             cinnamonwm.completed_switch_workspace();
         }});
-    },
-
-    _showTilePreview: function(cinnamonwm, window, tileRect, monitorIndex, snapQueued) {
-        if (!this._tilePreview)
-            this._tilePreview = new TilePreview();
-        this._tilePreview.show(window, tileRect, monitorIndex, snapQueued);
-    },
-
-    _hideTilePreview: function(cinnamonwm) {
-        if (!this._tilePreview)
-            return;
-        this._tilePreview.hide();
-        this._tilePreview.destroy();
-        this._tilePreview = null;
     },
 
     _showHudPreview: function(cinnamonwm, currentProximityZone, workArea, snapQueued) {

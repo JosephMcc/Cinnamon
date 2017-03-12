@@ -9,11 +9,14 @@
 #include "cinnamon-wm-private.h"
 #include "cinnamon-global.h"
 #include "cinnamon-marshal.h"
+#include "cinnamon-tile-preview.h"
 
 struct _CinnamonWM {
   GObject parent;
 
   MetaPlugin *plugin;
+
+  CinnamonTilePreview *tile_preview;
 };
 
 /* Signals */
@@ -296,14 +299,23 @@ _cinnamon_wm_show_tile_preview (CinnamonWM      *wm,
                                 int             tile_monitor,
                                 guint           snap_queued)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[SHOW_TILE_PREVIEW], 0,
-                   window, tile_rect, tile_monitor, snap_queued);
+    if (!wm->tile_preview)
+    {
+        wm->tile_preview = cinnamon_tile_preview_new ();
+    }
+
+    cinnamon_tile_preview_show (wm->tile_preview, wm->plugin, window, tile_rect, tile_monitor, snap_queued);
 }
 
 void
 _cinnamon_wm_hide_tile_preview (CinnamonWM *wm)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[HIDE_TILE_PREVIEW], 0);
+    if (!wm->tile_preview)
+    {
+        return;
+    }
+
+    cinnamon_tile_preview_hide (wm->tile_preview);
 }
 
 void
