@@ -10,6 +10,7 @@
 #include "cinnamon-global.h"
 #include "cinnamon-marshal.h"
 #include "cinnamon-tile-preview.h"
+#include "cinnamon-tile-hud.h"
 
 struct _CinnamonWM {
   GObject parent;
@@ -17,6 +18,7 @@ struct _CinnamonWM {
   MetaPlugin *plugin;
 
   CinnamonTilePreview *tile_preview;
+  CinnamonTileHud *tile_hud;
 };
 
 /* Signals */
@@ -324,14 +326,23 @@ _cinnamon_wm_show_hud_preview (CinnamonWM       *wm,
                                MetaRectangle    *work_area,
                                guint            snap_queued)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[SHOW_HUD_PREVIEW], 0,
-                   current_proximity_zone, work_area, snap_queued);
+    if (!wm->tile_hud)
+    {
+        wm->tile_hud = cinnamon_tile_hud_new ();
+    }
+
+    cinnamon_tile_hud_show (wm->tile_hud, wm->plugin, current_proximity_zone, work_area, snap_queued);
 }
 
 void
 _cinnamon_wm_hide_hud_preview (CinnamonWM *wm)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[HIDE_HUD_PREVIEW], 0);
+    if (!wm->tile_hud)
+    {
+        return;
+    }
+
+    cinnamon_tile_hud_hide (wm->tile_hud);
 }
 
 void

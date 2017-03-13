@@ -18,39 +18,10 @@ const ModalDialog = imports.ui.modalDialog;
 const Tweener = imports.ui.tweener;
 
 const WINDOW_ANIMATION_TIME = 0.25;
-const TILE_HUD_ANIMATION_TIME = 0.15;
 const DIM_TIME = 0.500;
 const DIM_DESATURATION = 0.6;
 const DIM_BRIGHTNESS = -0.2;
 const UNDIM_TIME = 0.250;
-
-/* edge zones for tiling/snapping identification
-   copied from muffin/src/core/window-private.h
-
-  ___________________________
-  | 4          0          5 |
-  |                         |
-  |                         |
-  |                         |
-  |                         |
-  |  2                   3  |
-  |                         |
-  |                         |
-  |                         |
-  |                         |
-  | 7          1          6 |
-  |_________________________|
-
-*/
-
-const ZONE_TOP = 0;
-const ZONE_BOTTOM = 1;
-const ZONE_LEFT = 2;
-const ZONE_RIGHT = 3;
-const ZONE_TL = 4;
-const ZONE_TR = 5;
-const ZONE_BR = 6;
-const ZONE_BL = 7;
 
 function getTopInvisibleBorder(metaWindow) {
     let outerRect = metaWindow.get_outer_rect();
@@ -97,216 +68,6 @@ function getWindowDimmer(actor) {
     return actor._windowDimmer;
 }
 
-function HudPreview() {
-    this._init();
-}
-
-HudPreview.prototype = {
-    _init: function() {
-        this.actor = new St.Bin({ style_class: 'tile-hud', important: true });
-        global.window_group.add_actor(this.actor);
-
-        this._tileHudSettings = new Gio.Settings({ schema_id: "org.cinnamon.muffin" });
-        this._tileHudSettings.connect("changed::tile-hud-threshold", Lang.bind(this, this._onTileHudSettingsChanged));
-
-        this._onTileHudSettingsChanged();
-        this._snapQueued = 0;
-
-        this._reset();
-        this._showing = false;
-    },
-
-    show: function(currentProximityZone, workArea, snapQueued) {
-        let changeZone = (this._zone != currentProximityZone);
-
-        if (this._snapQueued != snapQueued) {
-            this._updateSnapStyle();
-            this._snapQueued = snapQueued;
-        }
-
-        let pseudoClass = null;
-
-        if (!this._showing || changeZone) {
-            this._zone = currentProximityZone;
-
-            let monitorRect = workArea;
-            let tileGap = this._hudSize + 10;
-
-            switch(this._zone) {
-                case ZONE_TOP:
-                    this._x = monitorRect.x + tileGap;
-                    this._y = monitorRect.y;
-                    this._w = monitorRect.width - (tileGap * 2);
-                    this._h = 0;
-                    this._animatedX = this._x;
-                    this._animatedY = this._y;
-                    this._animatedW = this._w;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'top';
-                    break;
-                case ZONE_BOTTOM:
-                    this._x = monitorRect.x + tileGap;
-                    this._y = monitorRect.y + monitorRect.height;
-                    this._w = monitorRect.width - (tileGap * 2);
-                    this._h = 0;
-                    this._animatedX = this._x;
-                    this._animatedY = this._y - this._hudSize;
-                    this._animatedW = this._w;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'bottom';
-                    break;
-                case ZONE_LEFT:
-                    this._x = monitorRect.x;
-                    this._y = monitorRect.y + tileGap;
-                    this._w = 0;
-                    this._h = monitorRect.height - (tileGap * 2);
-                    this._animatedX = this._x;
-                    this._animatedY = this._y;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'left';
-                    break;
-                case ZONE_RIGHT:
-                    this._x = monitorRect.x + monitorRect.width;
-                    this._y = monitorRect.y + tileGap;
-                    this._w = 0;
-                    this._h = monitorRect.height - (tileGap * 2);
-                    this._animatedX = this._x - this._hudSize;
-                    this._animatedY = this._y;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'right';
-                    break;
-                case ZONE_TL:
-                    this._x = monitorRect.x;
-                    this._y = monitorRect.y;
-                    this._w = 0;
-                    this._h = 0;
-                    this._animatedX = this._x;
-                    this._animatedY = this._y;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'top-left';
-                    break;
-                case ZONE_TR:
-                    this._x = monitorRect.x + monitorRect.width;
-                    this._y = monitorRect.y;
-                    this._w = 0;
-                    this._h = 0;
-                    this._animatedX = this._x - this._hudSize;
-                    this._animatedY = this._y;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'top-right';
-                    break;
-                case ZONE_BL:
-                    this._x = monitorRect.x;
-                    this._y = monitorRect.y + monitorRect.height;
-                    this._w = 0;
-                    this._h = 0;
-                    this._animatedX = this._x;
-                    this._animatedY = this._y - this._hudSize;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'bottom-left';
-                    break;
-                case ZONE_BR:
-                    this._x = monitorRect.x + monitorRect.width;
-                    this._y = monitorRect.y + monitorRect.height;
-                    this._w = 0;
-                    this._h = 0;
-                    this._animatedX = this._x - this._hudSize;
-                    this._animatedY = this._y - this._hudSize;
-                    this._animatedW = this._w + this._hudSize;
-                    this._animatedH = this._h + this._hudSize;
-                    this.actor.set_size(this._w, this._h);
-                    this.actor.set_position(this._x, this._y);
-                    pseudoClass = 'bottom-right';
-                    break;
-                default:
-                    this.hide();
-                    return;
-
-            }
-            this._updateStyle(pseudoClass);
-
-            this._showing = true;
-            this.actor.show();
-            this.actor.raise_top();
-            this.actor.opacity = 0;
-
-            Tweener.addTween(this.actor,
-                         { x: this._animatedX,
-                           y: this._animatedY,
-                           width: this._animatedW,
-                           height: this._animatedH,
-                           opacity: 255,
-                           time: TILE_HUD_ANIMATION_TIME,
-                           transition: 'easeOutQuad' });
-        }
-    },
-
-    hide: function() {
-        if (!this._showing)
-            return;
-        this._showing = false;
-        Tweener.addTween(this.actor,
-                         { x: this._x,
-                           y: this._y,
-                           width: this._w,
-                           height: this._h,
-                           opacity: 0,
-                           time: TILE_HUD_ANIMATION_TIME,
-                           transition: 'easeOutQuad',
-                           onComplete: Lang.bind(this, this._reset) });
-    },
-
-    _reset: function () {
-        this.actor.hide();
-        this._zone = -1;
-    },
-
-    _onTileHudSettingsChanged: function() {
-        let scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
-        this._hudSize = this._tileHudSettings.get_int("tile-hud-threshold") * scaleFactor;
-
-    },
-
-    _updateStyle: function(pseudoClass) {
-        let currentStyle = this.actor.get_style_pseudo_class();
-        if (currentStyle)
-            this.actor.remove_style_pseudo_class(currentStyle);
-        if (pseudoClass) {
-            this.actor.set_style_pseudo_class(pseudoClass);
-        }
-    },
-
-    _updateSnapStyle: function() {
-        if (this.actor.has_style_class_name('snap'))
-            this.actor.remove_style_class_name('snap');
-        else
-            this.actor.add_style_class_name('snap');
-    },
-
-    destroy: function() {
-        this.actor.destroy();
-    }
-}
-
 function WindowManager() {
     this._init();
 }
@@ -335,8 +96,6 @@ WindowManager.prototype = {
         this._snapOsd = null;
         this._workspace_osd_array = [];
 
-        this._hudPreview = null;
-
         this._dimmedWindows = [];
 
         this._animationBlockCount = 0;
@@ -348,8 +107,6 @@ WindowManager.prototype = {
         this._cinnamonwm.connect('maximize', Lang.bind(this, this._maximizeWindow));
         this._cinnamonwm.connect('unmaximize', Lang.bind(this, this._unmaximizeWindow));
         this._cinnamonwm.connect('tile', Lang.bind(this, this._tileWindow));
-        this._cinnamonwm.connect('show-hud-preview', Lang.bind(this, this._showHudPreview));
-        this._cinnamonwm.connect('hide-hud-preview', Lang.bind(this, this._hideHudPreview));
         this._cinnamonwm.connect('map', Lang.bind(this, this._mapWindow));
         this._cinnamonwm.connect('destroy', Lang.bind(this, this._destroyWindow));
 
@@ -722,22 +479,6 @@ WindowManager.prototype = {
         Tweener.addTween(this, {time: WINDOW_ANIMATION_TIME, onComplete: function() {
             cinnamonwm.completed_switch_workspace();
         }});
-    },
-
-    _showHudPreview: function(cinnamonwm, currentProximityZone, workArea, snapQueued) {
-        if (global.settings.get_boolean("show-tile-hud")) {
-            if (!this._hudPreview)
-                this._hudPreview = new HudPreview();
-            this._hudPreview.show(currentProximityZone, workArea, snapQueued);
-        }
-    },
-
-    _hideHudPreview: function(cinnamonwm) {
-        if (!this._hudPreview)
-            return;
-        this._hudPreview.hide();
-        this._hudPreview.destroy();
-        this._hudPreview = null;
     },
 
     showWorkspaceOSD : function() {
