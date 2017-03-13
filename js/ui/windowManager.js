@@ -11,7 +11,6 @@ const AppSwitcher = imports.ui.appSwitcher.appSwitcher;
 const CoverflowSwitcher = imports.ui.appSwitcher.coverflowSwitcher;
 const TimelineSwitcher = imports.ui.appSwitcher.timelineSwitcher;
 const ClassicSwitcher = imports.ui.appSwitcher.classicSwitcher;
-const WindowEffects = imports.ui.windowEffects;
 
 const Main = imports.ui.main;
 const ModalDialog = imports.ui.modalDialog;
@@ -76,23 +75,6 @@ WindowManager.prototype = {
     _init : function() {
         this._cinnamonwm =  global.window_manager;
 
-        this._minimizing = [];
-        this._maximizing = [];
-        this._unmaximizing = [];
-        this._tiling = [];
-        this._mapping = [];
-        this._destroying = [];
-
-        this.effects = {
-            map: new WindowEffects.Map(this),
-            close: new WindowEffects.Close(this),
-            minimize: new WindowEffects.Minimize(this),
-            unminimize: new WindowEffects.Unminimize(this),
-            tile: new WindowEffects.Tile(this),
-            maximize: new WindowEffects.Maximize(this),
-            unmaximize: new WindowEffects.Unmaximize(this)
-        };
-
         this._snapOsd = null;
         this._workspace_osd_array = [];
 
@@ -101,7 +83,6 @@ WindowManager.prototype = {
         this._animationBlockCount = 0;
 
         this._switchData = null;
-        this._cinnamonwm.connect('kill-window-effects', Lang.bind(this, this._killWindowEffects));
         this._cinnamonwm.connect('switch-workspace', Lang.bind(this, this._switchWorkspace));
         this._cinnamonwm.connect('minimize', Lang.bind(this, this._minimizeWindow));
         this._cinnamonwm.connect('maximize', Lang.bind(this, this._maximizeWindow));
@@ -234,28 +215,18 @@ WindowManager.prototype = {
 
     _minimizeWindow : function(cinnamonwm, actor) {
         Main.soundManager.play('minimize');
-
-        // reset all cached values in case "traditional" is no longer in effect
-        actor.get_meta_window()._cinnamonwm_has_origin = false;
-        this._startWindowEffect(cinnamonwm, "minimize", actor);
     },
 
     _tileWindow : function (cinnamonwm, actor, targetX, targetY, targetWidth, targetHeight) {
         Main.soundManager.play('tile');
-
-        this._startWindowEffect(cinnamonwm, "tile", actor, [targetX, targetY, targetWidth, targetHeight]);
     },
 
     _maximizeWindow : function(cinnamonwm, actor, targetX, targetY, targetWidth, targetHeight) {
         Main.soundManager.play('maximize');
-
-        this._startWindowEffect(cinnamonwm, "maximize", actor, [targetX, targetY, targetWidth, targetHeight]);
     },
 
     _unmaximizeWindow : function(cinnamonwm, actor, targetX, targetY, targetWidth, targetHeight) {
         Main.soundManager.play('unmaximize');
-
-        this._startWindowEffect(cinnamonwm, "unmaximize", actor, [targetX, targetY, targetWidth, targetHeight]);
     },
 
     _hasAttachedDialogs: function(window, ignoreWindow) {
@@ -331,61 +302,24 @@ WindowManager.prototype = {
     },
 
     _mapWindow : function(cinnamonwm, actor) {
-        actor._windowType = actor.meta_window.get_window_type();
-        actor._notifyWindowTypeSignalId = actor.meta_window.connect('notify::window-type', Lang.bind(this, function () {
-            let type = actor.meta_window.get_window_type();
-            actor._windowType = type;
-        }));
-
-        if (actor.meta_window.is_attached_dialog()) {
-            this._checkDimming(actor.get_meta_window().get_transient_for());
-        }
-
         if (actor.get_meta_window()._cinnamonwm_has_origin === true) {
             Main.soundManager.play('minimize');
-            try {
-                this._startWindowEffect(cinnamonwm, "unminimize", actor, null, "minimize")
-                return;
-            } catch(e) {
-                //catch "no origin found"
-            }
         } else if (actor.meta_window.get_window_type() == Meta.WindowType.NORMAL) {
             Main.soundManager.play('map');
         }
-        this._startWindowEffect(cinnamonwm, "map", actor);
     },
 
     _destroyWindow : function(cinnamonwm, actor) {
-
         if (actor.meta_window.get_window_type() == Meta.WindowType.NORMAL) {
             Main.soundManager.play('close');
         }
 
         actor.orig_opacity = actor.opacity;
 
-        let window = actor.meta_window;
-
-        if (window.is_attached_dialog()) {
-            let parent = window.get_transient_for();
-            this._checkDimming(parent, window);
-        }
-
-        if (actor._notifyWindowTypeSignalId) {
-            window.disconnect(actor._notifyWindowTypeSignalId);
-            actor._notifyWindowTypeSignalId = 0;
-        }
-        if (window._dimmed) {
-            this._dimmedWindows = this._dimmedWindows.filter(function(win) {
-                                                                 return win != window;
-                                                             });
-        }
-
         if (window.minimized) {
             cinnamonwm.completed_destroy(actor);
             return;
         }
-
-        this._startWindowEffect(cinnamonwm, "close", actor);
     },
 
     _switchWorkspace : function(cinnamonwm, from, to, direction) {

@@ -350,6 +350,7 @@ _cinnamon_wm_minimize (CinnamonWM         *wm,
                     MetaWindowActor *actor)
 {
   g_signal_emit (wm, cinnamon_wm_signals[MINIMIZE], 0, actor);
+  meta_plugin_minimize_completed (wm->plugin, actor);
 }
 
 void
@@ -361,6 +362,7 @@ _cinnamon_wm_maximize (CinnamonWM         *wm,
                     int              target_height)
 {
   g_signal_emit (wm, cinnamon_wm_signals[MAXIMIZE], 0, actor, target_x, target_y, target_width, target_height);
+  meta_plugin_maximize_completed (wm->plugin, actor);
 }
 
 void
@@ -372,6 +374,7 @@ _cinnamon_wm_unmaximize (CinnamonWM         *wm,
                       int              target_height)
 {
   g_signal_emit (wm, cinnamon_wm_signals[UNMAXIMIZE], 0, actor, target_x, target_y, target_width, target_height);
+  meta_plugin_unmaximize_completed (wm->plugin, actor);
 }
 
 void
@@ -383,6 +386,7 @@ _cinnamon_wm_tile (CinnamonWM         *wm,
                    int                 target_height)
 {
   g_signal_emit (wm, cinnamon_wm_signals[TILE], 0, actor, target_x, target_y, target_width, target_height);
+  meta_plugin_tile_completed (wm->plugin, actor);
 }
 
 void
@@ -390,6 +394,7 @@ _cinnamon_wm_map (CinnamonWM         *wm,
                MetaWindowActor *actor)
 {
   g_signal_emit (wm, cinnamon_wm_signals[MAP], 0, actor);
+  meta_plugin_map_completed (wm->plugin, actor);
 }
 
 void
@@ -397,6 +402,7 @@ _cinnamon_wm_destroy (CinnamonWM         *wm,
                    MetaWindowActor *actor)
 {
   g_signal_emit (wm, cinnamon_wm_signals[DESTROY], 0, actor);
+  meta_plugin_destroy_completed (wm->plugin, actor);
 }
 
 /**
