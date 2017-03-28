@@ -75,7 +75,6 @@ WindowManager.prototype = {
     _init : function() {
         this._cinnamonwm =  global.window_manager;
 
-        this._snapOsd = null;
         this._workspace_osd_array = [];
 
         this._dimmedWindows = [];
@@ -126,8 +125,6 @@ WindowManager.prototype = {
                 this._dimWindow(this._dimmedWindows[i], true);
         }));
 
-        global.screen.connect ("show-snap-osd", Lang.bind (this, this._showSnapOSD));
-        global.screen.connect ("hide-snap-osd", Lang.bind (this, this._hideSnapOSD));
         global.screen.connect ("show-workspace-osd", Lang.bind (this, this.showWorkspaceOSD));
 
         this.settings = new Gio.Settings({schema_id: "org.cinnamon.muffin"});
@@ -472,32 +469,6 @@ WindowManager.prototype = {
             }
         }
         this._workspace_osd_array = []
-    },
-
-    _showSnapOSD : function(metaScreen, monitorIndex) {
-        if (global.settings.get_boolean("show-snap-osd")) {
-            if (this._snapOsd == null) {
-                this._snapOsd = new ModalDialog.InfoOSD();
-
-                let mod = this.settings.get_string("snap-modifier");
-                if (mod == "Super")
-                    this._snapOsd.addText(_("Hold <Super> to enter snap mode"));
-                else if (mod == "Alt")
-                    this._snapOsd.addText(_("Hold <Alt> to enter snap mode"));
-                else if (mod == "Control")
-                    this._snapOsd.addText(_("Hold <Ctrl> to enter snap mode"));
-                else if (mod == "Shift")
-                    this._snapOsd.addText(_("Hold <Shift> to enter snap mode"));
-                this._snapOsd.addText(_("Use the arrow keys to shift workspaces"));
-            }
-            this._snapOsd.show(monitorIndex);
-        }
-    },
-
-    _hideSnapOSD : function() {
-        if (this._snapOsd != null) {
-            this._snapOsd.hide();
-        }
     },
 
     _createAppSwitcher : function(binding) {

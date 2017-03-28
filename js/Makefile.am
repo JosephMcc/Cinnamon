@@ -83,7 +83,6 @@ nobase_dist_js_DATA = \
 	ui/tweener.js		\
 	ui/windowAttentionHandler.js	\
 	ui/windowManager.js	\
-	ui/windowEffects.js	\
 	ui/workspace.js		\
 	ui/workspacesView.js	\
 	ui/xdndHandler.js

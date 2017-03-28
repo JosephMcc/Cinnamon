@@ -41,6 +41,12 @@ void     cinnamon_wm_completed_destroy          (CinnamonWM         *wm,
                                               MetaWindowActor *actor);
 void     cinnamon_wm_completed_switch_workspace (CinnamonWM         *wm);
 
+void cinnamon_wm_show_snap_osd (MetaScreen *screen,
+                                gint        monitor_index,
+                                CinnamonWM *wm);
+void cinnamon_wm_hide_snap_osd (MetaScreen *screen,
+                                CinnamonWM *wm);
+
 G_END_DECLS
 
 #endif /* __CINNAMON_WM_H__ */
