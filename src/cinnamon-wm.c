@@ -4,16 +4,28 @@
 
 #include <string.h>
 
+#include <glib/gi18n-lib.h>
+
 #include <meta/keybindings.h>
 
 #include "cinnamon-wm-private.h"
 #include "cinnamon-global.h"
 #include "cinnamon-marshal.h"
+#include "cinnamon-tile-preview.h"
+#include "cinnamon-tile-hud.h"
+#include "cinnamon-info-osd.h"
 
 struct _CinnamonWM {
   GObject parent;
 
   MetaPlugin *plugin;
+
+  GSettings *base_settings;
+  GSettings *muffin_settings;
+
+  CinnamonTilePreview *tile_preview;
+  CinnamonTileHud *tile_hud;
+  CinnamonInfoOsd *snap_osd;
 };
 
 /* Signals */
@@ -41,8 +53,21 @@ G_DEFINE_TYPE(CinnamonWM, cinnamon_wm, G_TYPE_OBJECT);
 static guint cinnamon_wm_signals [LAST_SIGNAL] = { 0 };
 
 static void
+cinnamon_wm_dispose (GObject *object)
+{
+    CinnamonWM *wm = CINNAMON_WM (object);
+
+    g_clear_object (&wm->base_settings);
+    g_clear_object (&wm->muffin_settings);
+
+    G_OBJECT_CLASS (cinnamon_wm_parent_class)->dispose (object);
+}
+
+static void
 cinnamon_wm_init (CinnamonWM *wm)
 {
+    wm->base_settings = g_settings_new ("org.cinnamon");
+    wm->muffin_settings = g_settings_new ("org.cinnamon.muffin");
 }
 
 static void
@@ -56,6 +81,7 @@ cinnamon_wm_class_init (CinnamonWMClass *klass)
 {
   GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
+  gobject_class->dispose = cinnamon_wm_dispose;
   gobject_class->finalize = cinnamon_wm_finalize;
 
   cinnamon_wm_signals[MINIMIZE] =
@@ -296,14 +322,23 @@ _cinnamon_wm_show_tile_preview (CinnamonWM      *wm,
                                 int             tile_monitor,
                                 guint           snap_queued)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[SHOW_TILE_PREVIEW], 0,
-                   window, tile_rect, tile_monitor, snap_queued);
+    if (!wm->tile_preview)
+    {
+        wm->tile_preview = cinnamon_tile_preview_new ();
+    }
+
+    cinnamon_tile_preview_show (wm->tile_preview, wm->plugin, window, tile_rect, tile_monitor, snap_queued);
 }
 
 void
 _cinnamon_wm_hide_tile_preview (CinnamonWM *wm)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[HIDE_TILE_PREVIEW], 0);
+    if (!wm->tile_preview)
+    {
+        return;
+    }
+
+    cinnamon_tile_preview_hide (wm->tile_preview);
 }
 
 void
@@ -312,14 +347,23 @@ _cinnamon_wm_show_hud_preview (CinnamonWM       *wm,
                                MetaRectangle    *work_area,
                                guint            snap_queued)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[SHOW_HUD_PREVIEW], 0,
-                   current_proximity_zone, work_area, snap_queued);
+    if (!wm->tile_hud)
+    {
+        wm->tile_hud = cinnamon_tile_hud_new ();
+    }
+
+    cinnamon_tile_hud_show (wm->tile_hud, wm->plugin, current_proximity_zone, work_area, snap_queued);
 }
 
 void
 _cinnamon_wm_hide_hud_preview (CinnamonWM *wm)
 {
-    g_signal_emit (wm, cinnamon_wm_signals[HIDE_HUD_PREVIEW], 0);
+    if (!wm->tile_hud)
+    {
+        return;
+    }
+
+    cinnamon_tile_hud_hide (wm->tile_hud);
 }
 
 void
@@ -374,6 +418,80 @@ _cinnamon_wm_destroy (CinnamonWM         *wm,
                    MetaWindowActor *actor)
 {
   g_signal_emit (wm, cinnamon_wm_signals[DESTROY], 0, actor);
+}
+
+void
+cinnamon_wm_show_snap_osd (MetaScreen *screen,
+                           gint        monitor_index,
+                           CinnamonWM *wm)
+{
+    if (!g_settings_get_boolean (wm->base_settings, "show-snap-osd"))
+    {
+        return;
+    }
+
+    if (!wm->snap_osd)
+    {
+        MetaRectangle monitor_rect;
+        ClutterActor *window_group;
+        int x, y;
+        gchar *modifier = NULL;
+
+        wm->snap_osd = cinnamon_info_osd_new (NULL);
+
+        modifier = g_settings_get_string (wm->muffin_settings, "snap-modifier");
+
+        if (g_strcmp0 (modifier, "Super") == 0)
+        {
+            cinnamon_info_osd_add_text (wm->snap_osd, _("Hold <Super> to enter snap mode"));
+        }
+        else if (g_strcmp0 (modifier, "Alt") == 0)
+        {
+            cinnamon_info_osd_add_text (wm->snap_osd, _("Hold <Alt> to enter snap mode"));
+        }
+        else if (g_strcmp0 (modifier, "Control") == 0)
+        {
+            cinnamon_info_osd_add_text (wm->snap_osd, _("Hold <Ctrl> to enter snap mode"));
+        }
+        else if (g_strcmp0 (modifier, "Shift") == 0)
+        {
+            cinnamon_info_osd_add_text (wm->snap_osd, _("Hold <Shift> to enter snap mode"));
+        }
+
+        if (modifier)
+        {
+            g_free (modifier);
+        }
+
+        cinnamon_info_osd_add_text (wm->snap_osd, _("Use the arrow keys to shift workspaces"));
+
+        window_group = meta_get_window_group_for_screen (screen);
+        clutter_actor_add_child (window_group, CLUTTER_ACTOR (wm->snap_osd));
+        clutter_actor_set_opacity (CLUTTER_ACTOR (wm->snap_osd), 0);
+        clutter_actor_show (CLUTTER_ACTOR (wm->snap_osd));
+
+        meta_screen_get_monitor_geometry (screen, monitor_index, &monitor_rect);
+        x = monitor_rect.x + ((monitor_rect.width - clutter_actor_get_width (CLUTTER_ACTOR (wm->snap_osd))) / 2);
+        y = monitor_rect.y + ((monitor_rect.height - clutter_actor_get_height (CLUTTER_ACTOR (wm->snap_osd))) / 2);
+        clutter_actor_set_child_above_sibling (window_group, CLUTTER_ACTOR (wm->snap_osd), NULL);
+
+        clutter_actor_set_position (CLUTTER_ACTOR (wm->snap_osd), x, y);
+        clutter_actor_set_opacity (CLUTTER_ACTOR (wm->snap_osd), 255);
+    }
+}
+
+void
+cinnamon_wm_hide_snap_osd (MetaScreen *screen,
+                           CinnamonWM *wm)
+{
+    if (!wm->snap_osd)
+    {
+        return;
+    }
+
+    clutter_actor_hide (CLUTTER_ACTOR (wm->snap_osd));
+    clutter_actor_destroy (CLUTTER_ACTOR (wm->snap_osd));
+    wm->snap_osd = NULL;
 }
 
 /**

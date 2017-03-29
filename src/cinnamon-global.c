@@ -1089,6 +1089,11 @@ _cinnamon_global_set_plugin (CinnamonGlobal *global,
   global->focus_manager = st_focus_manager_get_for_stage (global->stage);
 
   update_scale_factor (gtk_settings_get_default (), NULL, global);
+
+  g_signal_connect (global->meta_screen, "show-snap-osd",
+                    G_CALLBACK (cinnamon_wm_show_snap_osd), global->wm);
+  g_signal_connect (global->meta_screen, "hide-snap-osd",
+                    G_CALLBACK (cinnamon_wm_hide_snap_osd), global->wm);
 }
 
 /**

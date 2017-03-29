@@ -111,11 +111,14 @@ cinnamon_public_headers_h =		\
 	cinnamon-generic-container.h	\
 	cinnamon-gtk-embed.h		\
 	cinnamon-global.h			\
+	cinnamon-info-osd.h 		\
 	cinnamon-mount-operation.h		\
 	cinnamon-perf-log.h		\
 	cinnamon-screenshot.h	\
 	cinnamon-slicer.h			\
 	cinnamon-stack.h			\
+	cinnamon-tile-hud.h 		\
+	cinnamon-tile-preview.h 	\
 	cinnamon-tray-icon.h		\
 	cinnamon-tray-manager.h		\
 	cinnamon-util.h			\
@@ -141,11 +144,14 @@ libcinnamon_la_SOURCES =		\
 	cinnamon-generic-container.c	\
 	cinnamon-gtk-embed.c		\
 	cinnamon-global.c			\
+	cinnamon-info-osd.c 		\
 	cinnamon-mount-operation.c		\
 	cinnamon-perf-log.c		\
 	cinnamon-screenshot.c		\
 	cinnamon-slicer.c			\
 	cinnamon-stack.c			\
+	cinnamon-tile-hud.c 		\
+	cinnamon-tile-preview.c 	\
 	cinnamon-tray-icon.c		\
 	cinnamon-tray-manager.c		\
 	cinnamon-util.c			\
