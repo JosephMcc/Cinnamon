@@ -259,7 +259,7 @@ function _initUserSession() {
     indicatorManager = new IndicatorManager.IndicatorManager();
 
     Meta.keybindings_set_custom_handler('panel-run-dialog', function() {
-       getRunDialog().open();
+       GLib.spawn_command_line_async('cinnamon-run-dialog');
     });
 }
 

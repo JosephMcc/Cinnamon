@@ -1,0 +1,6 @@
+[Desktop Entry]
+Exec=cinnamon-run-dialog
+Type=Application
+NoDisplay=true
+Name=Cinnamon Run Dialog
+Comment=Cinnamon Run Dialog

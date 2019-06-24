@@ -1,0 +1,8 @@
+#!/usr/bin/python3
+
+""" Starts the Cinnamon run dialog
+"""
+
+import os
+
+os.execvp("/usr/share/cinnamon/cinnamon-run-dialog/cinnamon-run-dialog.py", (" ",))
