@@ -91,11 +91,8 @@ $menuitem_border_radius: $base_border_radius * 1;
 
 // separator
 .popup-separator-menu-item {
-  -gradient-height: 1px;
-  -gradient-start: $borders_color;
-  -gradient-end: $borders_color;
-  -margin-horizontal: 0;
   height: 1px;
+  background-color: $borders_color;
 }
 
 // scale view context menu - just duplicating regular popupmenu here
