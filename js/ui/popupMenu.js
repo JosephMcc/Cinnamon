@@ -2676,16 +2676,19 @@ var PopupSubMenuMenuItem = class PopupSubMenuMenuItem extends PopupBaseMenuItem 
         if (typeof text === 'string') {
             this.actor.add_style_class_name('popup-submenu-menu-item');
 
-            this.label = new St.Label({ text: text,
-                                        y_expand: true,
-                                        y_align: Clutter.ActorAlign.CENTER });
-            this.addActor(this.label);
+            this.label = new St.Label({
+                text: text,
+                y_expand: true,
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            this.actor.add_child(this.label);
             this.actor.label_actor = this.label;
 
-            this._triangleBin = new St.Bin({ x_align: St.Align.END });
-            this.addActor(this._triangleBin, { expand: true,
-                                               span: -1,
-                                               align: St.Align.END });
+            this._triangleBin = new St.Bin({
+                x_expand: true,
+                x_align: St.Align.END,
+            });
+            this.actor.add_child(this._triangleBin);
 
             this._triangle = arrowIcon(St.Side.RIGHT);
             this._triangle.pivot_point = new Graphene.Point({ x: 0.5, y: 0.5 });
