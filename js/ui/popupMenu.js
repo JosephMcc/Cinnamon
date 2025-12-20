@@ -107,14 +107,13 @@ var PopupBaseMenuItem = class PopupBaseMenuItem {
                                          focusOnHover: true
                                        });
         this._signals = new SignalManager.SignalManager(null);
-        this.actor = new Cinnamon.GenericContainer({ style_class: 'popup-menu-item',
-                                                  reactive: params.reactive,
-                                                  track_hover: params.reactive,
-                                                  can_focus: params.reactive,
-                                                  accessible_role: Atk.Role.MENU_ITEM });
-        this._signals.connect(this.actor, 'get-preferred-width', Lang.bind(this, this._getPreferredWidth));
-        this._signals.connect(this.actor, 'get-preferred-height', Lang.bind(this, this._getPreferredHeight));
-        this._signals.connect(this.actor, 'allocate', Lang.bind(this, this._allocate));
+        this.actor =  new St.BoxLayout({
+            style_class: 'popup-menu-item',
+            reactive: params.reactive,
+            track_hover: params.reactive,
+            can_focus: params.reactive,
+            accessible_role: Atk.Role.MENU_ITEM,
+        });
         this._signals.connect(this.actor, 'style-changed', Lang.bind(this, this._onStyleChanged));
         this.actor._delegate = this;
 
@@ -301,176 +300,6 @@ var PopupBaseMenuItem = class PopupBaseMenuItem {
 
     setColumnWidths(widths) {
         this._columnWidths = widths;
-    }
-
-    _getPreferredWidth(actor, forHeight, alloc) {
-        let width = 0;
-        if (this._columnWidths) {
-            for (let i = 0; i < this._columnWidths.length; i++) {
-                if (i > 0)
-                    width += this._spacing;
-                width += this._columnWidths[i];
-            }
-        } else {
-            for (let i = 0; i < this._children.length; i++) {
-                let child = this._children[i];
-                if (i > 0)
-                    width += this._spacing;
-                let [min, natural] = child.actor.get_preferred_width(-1);
-                width += natural;
-            }
-        }
-        alloc.min_size = alloc.natural_size = width;
-    }
-
-    _getPreferredHeight(actor, forWidth, alloc) {
-        let height = 0, x = 0, minWidth, childWidth;
-        for (let i = 0; i < this._children.length; i++) {
-            let child = this._children[i];
-            if (this._columnWidths) {
-                if (child.span == -1) {
-                    childWidth = 0;
-                    for (let j = i; j < this._columnWidths.length; j++)
-                        childWidth += this._columnWidths[j]
-                } else
-                    childWidth = this._columnWidths[i];
-            } else {
-                if (child.span == -1)
-                    childWidth = forWidth - x;
-                else
-                    [minWidth, childWidth] = child.actor.get_preferred_width(-1);
-            }
-            x += childWidth;
-
-            let [min, natural] = child.actor.get_preferred_height(childWidth);
-            if (natural > height)
-                height = natural;
-        }
-        alloc.min_size = alloc.natural_size = height;
-    }
-
-    _allocate(actor, box, flags) {
-        let height = box.y2 - box.y1;
-        let direction = this.actor.get_direction();
-
-        if (this._dot) {
-            // The dot is placed outside box
-            // one quarter of padding from the border of the container
-            // (so 3/4 from the inner border)
-            // (padding is box.x1)
-            let dotBox = new Clutter.ActorBox();
-            let dotWidth = Math.round(box.x1 / 2);
-
-            if (direction == St.TextDirection.LTR) {
-                dotBox.x1 = Math.round(box.x1 / 4);
-                dotBox.x2 = dotBox.x1 + dotWidth;
-            } else {
-                dotBox.x2 = box.x2 + 3 * Math.round(box.x1 / 4);
-                dotBox.x1 = dotBox.x2 - dotWidth;
-            }
-            dotBox.y1 = Math.round(box.y1 + (height - dotWidth) / 2);
-            dotBox.y2 = dotBox.y1 + dotWidth;
-            this._dot.allocate(dotBox, flags);
-        }
-
-        let x;
-        if (direction == St.TextDirection.LTR)
-            x = box.x1;
-        else
-            x = box.x2;
-
-        let cols;
-        //clone _columnWidths, if it exists, to be able to modify it without any impact
-        if (this._columnWidths instanceof Array)
-            cols = this._columnWidths.slice(0);
-
-        // if direction is ltr, x is the right edge of the last added
-        // actor, and it's constantly increasing, whereas if rtl, x is
-        // the left edge and it decreases
-        for (let i = 0, col = 0; i < this._children.length; i++) {
-            let child = this._children[i];
-            let childBox = new Clutter.ActorBox();
-
-            let [minWidth, naturalWidth] = child.actor.get_preferred_width(-1);
-            let availWidth, extraWidth;
-            if (cols) {
-                if (child.span == -1) {
-                    if (direction == St.TextDirection.LTR)
-                        availWidth = box.x2 - x;
-                    else
-                        availWidth = x - box.x1;
-                } else if (child.span == 0) {
-                    availWidth = naturalWidth;
-                    cols[col] -= naturalWidth + this._spacing;
-                } else {
-                    availWidth = 0;
-                    for (let j = 0; j < child.span; j++)
-                        availWidth += cols[col++];
-                }
-                extraWidth = availWidth - naturalWidth;
-            } else {
-                if (child.span == -1) {
-                    if (direction == St.TextDirection.LTR)
-                        availWidth = box.x2 - x;
-                    else
-                        availWidth = x - box.x1;
-                } else {
-                    availWidth = naturalWidth;
-                }
-                extraWidth = 0;
-            }
-
-            if (direction == St.TextDirection.LTR) {
-                if (child.expand) {
-                    childBox.x1 = x;
-                    childBox.x2 = x + availWidth;
-                } else if (child.align === St.Align.MIDDLE) {
-                    childBox.x1 = x + Math.round(extraWidth / 2);
-                    childBox.x2 = childBox.x1 + naturalWidth;
-                } else if (child.align === St.Align.END) {
-                    childBox.x2 = x + availWidth;
-                    childBox.x1 = childBox.x2 - naturalWidth;
-                } else {
-                    childBox.x1 = x;
-                    childBox.x2 = x + naturalWidth;
-                }
-
-                //when somehow the actor is wider than the box, cut it off
-                if(childBox.x2 > box.x2)
-                    childBox.x2 = box.x2;
-            } else {
-                if (child.expand) {
-                    childBox.x1 = x - availWidth;
-                    childBox.x2 = x;
-                } else if (child.align === St.Align.MIDDLE) {
-                    childBox.x1 = x - Math.round(extraWidth / 2);
-                    childBox.x2 = childBox.x1 + naturalWidth;
-                } else if (child.align === St.Align.END) {
-                    // align to the left
-                    childBox.x1 = x - availWidth;
-                    childBox.x2 = childBox.x1 + naturalWidth;
-                } else {
-                    // align to the right
-                    childBox.x2 = x;
-                    childBox.x1 = x - naturalWidth;
-                }
-
-                //when somehow the actor is wider than the box, cut it off
-                if(childBox.x1 < box.x1)
-                    childBox.x1 = box.x1;
-            }
-
-            let [minHeight, naturalHeight] = child.actor.get_preferred_height(childBox.x2 - childBox.x1);
-            childBox.y1 = Math.round(box.y1 + (height - naturalHeight) / 2);
-            childBox.y2 = childBox.y1 + naturalHeight;
-
-            child.actor.allocate(childBox, flags);
-
-            if (direction == St.TextDirection.LTR)
-                x += availWidth + this._spacing;
-            else
-                x -= availWidth + this._spacing;
-        }
     }
 }
 Signals.addSignalMethods(PopupBaseMenuItem.prototype);
