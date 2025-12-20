@@ -801,13 +801,15 @@ var PopupIconMenuItem = class PopupIconMenuItem extends PopupBaseMenuItem {
     _init (text, iconName, iconType, params) {
         super._init.call(this, params);
 
-        this.label = new St.Label({text: text});
+        this.label = new St.Label({ text: text });
         this.actor.label_actor = this.label;
-        this._icon = new St.Icon({ style_class: 'popup-menu-icon',
+        this._icon = new St.Icon({
+            style_class: 'popup-menu-icon',
             icon_name: iconName,
-            icon_type: iconType});
-        this.addActor(this._icon, {span: 0});
-        this.addActor(this.label);
+            icon_type: iconType,
+        });
+        this.actor.add_child(this._icon);
+        this.actor.add_child(this.label);
     }
 
     /**
