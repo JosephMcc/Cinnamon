@@ -340,6 +340,8 @@ var PopupSeparatorMenuItem = class PopupSeparatorMenuItem extends PopupBaseMenuI
     _init () {
         super._init.call(this, { reactive: false });
 
+        this.actor.remove_style_class_name('popup-menu-item');
+
         this._separator = new St.Widget({
             style_class: 'popup-separator-menu-item',
             x_expand: true,
