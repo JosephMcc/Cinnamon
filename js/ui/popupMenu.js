@@ -118,7 +118,12 @@ var PopupBaseMenuItem = class PopupBaseMenuItem {
         this.actor._delegate = this;
 
         this._children = [];
-        this._dot = null;
+        this._dot = new St.Icon({
+            style_class: 'popup-menu-icon',
+            icon_type: St.IconType.SYMBOLIC,
+            icon_name: 'ornament-dot-unchecked-symbolic',
+        });
+        this.actor.add_child(this._dot);
         this._columnWidths = null;
         this._spacing = 0;
         this.active = false;
@@ -243,37 +248,12 @@ var PopupBaseMenuItem = class PopupBaseMenuItem {
 
     setShowDot(show) {
         if (show) {
-            if (this._dot)
-                return;
-
-            this._dot = new St.DrawingArea({ style_class: 'popup-menu-item-dot' });
-            this._signals.connect(this._dot, 'repaint', Lang.bind(this, this._onRepaintDot));
-            this.actor.add_actor(this._dot);
+            this._dot.set_icon_name('ornament-dot-checked-symbolic');
             this.actor.add_accessible_state (Atk.StateType.CHECKED);
         } else {
-            if (!this._dot)
-                return;
-
-            this._dot.destroy();
-            this._dot = null;
+            this._dot.set_icon_name('ornament-dot-unchecked-symbolic');
             this.actor.remove_accessible_state (Atk.StateType.CHECKED);
         }
-    }
-
-    _onRepaintDot(area) {
-        let cr = area.get_context();
-        let [width, height] = area.get_surface_size();
-        let color = area.get_theme_node().get_foreground_color();
-
-        cr.setSourceRGBA (
-            color.red / 255,
-            color.green / 255,
-            color.blue / 255,
-            color.alpha / 255);
-        cr.arc(width / 2, height / 2, width / 3, 0, 2 * Math.PI);
-        cr.fill();
-
-        cr.$dispose();
     }
 
     // This returns column widths in logical order (i.e. from the dot
@@ -842,9 +822,12 @@ var PopupImageMenuItem = class PopupImageMenuItem extends PopupBaseMenuItem {
 
         this.label = new St.Label({ text: text });
         this.actor.label_actor = this.label;
-        this.addActor(this.label);
-        this._icon = new St.Icon({ style_class: 'popup-menu-icon' });
-        this.addActor(this._icon, { align: St.Align.END });
+        this.actor.add_child(this.label);
+        this._icon = new St.Icon({
+            style_class: 'popup-menu-icon',
+            x_expand: true,
+        });
+        this.actor.add_child(this._icon);
 
         this.setIcon(iconName);
     }

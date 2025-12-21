@@ -2,7 +2,7 @@ $menuitem_border_radius: $base_border_radius * 1;
 
 //container of the popup menu
 .menu {
-  min-width: 15em;
+  min-width: 20em;
   color: $fg_color;
   padding: 6px;
 }
@@ -19,6 +19,8 @@ $menuitem_border_radius: $base_border_radius * 1;
 // menu items
 .popup-menu-item {
   @extend %menuitem;
+
+  padding-left: 0;
 
   &:active {
     background-color: $light_bg_color;
@@ -59,7 +61,7 @@ $menuitem_border_radius: $base_border_radius * 1;
     @extend %menuitem;
     background-color: $base_color;
     margin: 0;
-    padding: $base_padding + 2 0 $base_padding + 2 $base_padding * 2;
+    padding: $base_padding + 2 $base_padding + 2 $base_padding + 2 0;
 
     &:active { background-color: $light_base_color; }
 
