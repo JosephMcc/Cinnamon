@@ -104,6 +104,8 @@ NMNetworkMenuItem.prototype = {
     _init: function(accessPoints, title, params) {
         PopupMenu.PopupBaseMenuItem.prototype._init.call(this, params);
 
+        this.actor.add_style_class_name('network-device-menu-item');
+
         accessPoints = sortAccessPoints(accessPoints);
         this.bestAP = accessPoints[0];
 
@@ -1808,6 +1810,7 @@ CinnamonNetworkApplet.prototype = {
 
             this.menuManager = new PopupMenu.PopupMenuManager(this);
             this.menu = new Applet.AppletPopupMenu(this, orientation);
+            this.menu.setCustomStyleClass('network-menu');
             this.menuManager.addMenu(this.menu);
 
             this._currentIconName = undefined;

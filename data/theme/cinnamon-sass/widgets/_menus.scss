@@ -121,14 +121,14 @@ $menuitem_border_radius: $base_border_radius * 1;
 .popup-device-menu-item {
   spacing: .5em;
 
-  @extend %heading;
+  // @extend %heading;
   color: $fg_color;
 
   &:insensitive { color: $fg_color; }
 
   .popup-inactive-menu-item {
     font-weight: normal;
-    color: $fg_color;
+    color: $insensitive_fg_color;
   }
 }
 

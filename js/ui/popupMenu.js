@@ -907,15 +907,29 @@ var PopupSwitchMenuItem = class PopupSwitchMenuItem extends PopupBaseMenuItem {
     _init(text, active, params) {
         super._init.call(this, params);
 
-        this.label = new St.Label({ text: text });
-        this._statusLabel = new St.Label({ text: '', style_class: 'popup-inactive-menu-item' });
+        this._box = new St.BoxLayout({
+            vertical: true,
+        });
+        this.addActor(this._box);
+
+        this.label = new St.Label({
+            style_class: 'title',
+            text: text,
+        });
+        this._statusLabel = new St.Label({
+            text: '',
+            style_class: 'subtitle',
+            visible: false,
+        });
 
         this.actor.label_actor = this.label;
 
         this._switch = new Switch(active);
 
-        this.addActor(this.label);
-        this.addActor(this._statusLabel);
+        // this.addActor(this.label);
+        // this.addActor(this._statusLabel);
+        this._box.add_child(this.label);
+        this._box.add_child(this._statusLabel);
 
         this._statusBin = new St.Bin({ x_align: St.Align.END });
         this.addActor(this._statusBin, { expand: true, span: -1, align: St.Align.END });
@@ -925,8 +939,10 @@ var PopupSwitchMenuItem = class PopupSwitchMenuItem extends PopupBaseMenuItem {
     setStatus(text) {
         if (text != null) {
             this._statusLabel.set_text(text);
+            this._statusLabel.visible = true;
         } else {
             this._statusLabel.set_text('');
+            this._statusLabel.visible = false;
         }
     }
 
