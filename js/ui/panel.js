@@ -9,6 +9,7 @@
  */
 const Cairo = imports.cairo;
 const Clutter = imports.gi.Clutter;
+const GObject = imports.gi.GObject;
 const Lang = imports.lang;
 const Mainloop = imports.mainloop;
 const Meta = imports.gi.Meta;
@@ -1678,6 +1679,60 @@ PanelCorner.prototype = {
     }
 }; // end of panel corner
 
+var ContextMenuButton = GObject.registerClass(
+class ContextMenuButton extends St.Button {
+    _init(iconName) {
+        super._init({
+            style_class: 'icon-button',
+            can_focus: true,
+        });
+
+        const icon = new St.Icon ({
+            icon_name: iconName,
+            icon_type: St.IconType.SYMBOLIC,
+        });
+        this.child = icon;
+    }
+});
+
+var ContextMenuButtonLayout = GObject.registerClass(
+class ContextMenuButtonLayout extends St.BoxLayout {
+    _init(menu) {
+        super._init({
+            style_class: 'button-layout',
+            layout_manager: new Clutter.BoxLayout({
+                homogeneous: true,
+                spacing: 12,
+            }),
+        });
+
+        this.menu = menu;
+
+        const moveButton = new ContextMenuButton('xsi-move');
+        moveButton.connect('clicked', () => {
+            Main.panelManager.movePanelQuery(this.menu.panelId);
+            this.menu.close(true);
+        });
+        this.add_child(moveButton);
+
+        const removeButton = new ContextMenuButton('xsi-list-remove');
+        removeButton.connect('clicked', () => {
+            const confirm = new ModalDialog.ConfirmDialog(_("Are you sure you want to remove this panel?"), () => {
+                Main.panelManager.removePanel(menu.panelId);
+            });
+            confirm.open();
+        });
+        this.add_child(removeButton);
+
+        const addButton = new ContextMenuButton('xsi-list-add');
+        addButton.connect('clicked', () => {
+            Main.panelManager.addPanelQuery();
+            this.menu.close(true);
+        })
+        this.add_child(addButton);
+    }
+});
+
 function SettingsLauncher(label, keyword, icon) {
     this._init(label, keyword, icon);
 }
@@ -1708,11 +1763,52 @@ PanelContextMenu.prototype = {
         this.actor.hide();
         this.panelId = panelId;
 
-        let moreSettingsMenuItem = new SettingsLauncher(_("Panel settings"), "panel --panel " + panelId, "xsi-cog");
-        this.addMenuItem(moreSettingsMenuItem);
+        this.setCustomStyleClass('panel-context-menu');
 
-        let applet_settings_item = new SettingsLauncher(_("Applets"), "applets --panel " + panelId, "xsi-addon");
-        this.addMenuItem(applet_settings_item);
+        const titleBox = new St.BoxLayout({ style_class: 'applet-title-box' });
+        const label = new St.Label({
+            style_class: 'title',
+            text: _("Panel"),
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        titleBox.add_child(label);
+
+        const spacer = new St.BoxLayout({ x_expand: true });
+        titleBox.add_child(spacer);
+
+        const appletsIcon = new St.Icon ({
+            icon_name: 'xsi-addon',
+            icon_type: St.IconType.SYMBOLIC,
+        });
+
+        const appletsButton = new St.Button({
+            style_class: 'icon-button',
+            can_focus: true,
+        });
+        appletsButton.child = appletsIcon;
+        appletsButton.connect('clicked', () => {
+            Util.spawnCommandLine("cinnamon-settings applets --panel " + panelId);
+            this.close();
+        });
+        titleBox.add_child(appletsButton);
+
+        const prefsIcon = new St.Icon ({
+            icon_name: 'xsi-preferences-symbolic',
+            icon_type: St.IconType.SYMBOLIC,
+        });
+
+        const prefsButton = new St.Button({
+            style_class: 'icon-button',
+            can_focus: true,
+        });
+        prefsButton.child = prefsIcon;
+        prefsButton.connect('clicked', () => {
+            Util.spawnCommandLine("cinnamon-settings panel --panel " + panelId);
+            this.close();
+        });
+        titleBox.add_child(prefsButton);
+
+        this.box.add_child(titleBox);
 
         let menu = this;
 
@@ -1736,88 +1832,8 @@ PanelContextMenu.prototype = {
 
         menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem()); // separator line
 
-        menu.movePanelItem = new PopupMenu.PopupIconMenuItem(_("Move"), "xsi-move", St.IconType.SYMBOLIC); // submenu item move panel
-        menu.movePanelItem.activate = Lang.bind(menu, function() {
-            Main.panelManager.movePanelQuery(this.panelId);
-            this.close(true);
-        });
-        menu.addMenuItem(menu.movePanelItem);
-
-        let menuItem = new PopupMenu.PopupIconMenuItem(_("Remove"), "xsi-list-remove", St.IconType.SYMBOLIC);  // submenu item remove panel
-        menuItem.activate = Lang.bind(menu, function() {
-            let confirm = new ModalDialog.ConfirmDialog(_("Are you sure you want to remove this panel?"),
-                    function() {
-                        Main.panelManager.removePanel(panelId);
-                    });
-            confirm.open();
-        });
-        menu.addMenuItem(menuItem);
-
-        menu.addPanelItem = new PopupMenu.PopupIconMenuItem(_("Add a new panel"), "xsi-list-add", St.IconType.SYMBOLIC); // submenu item add panel
-        menu.addPanelItem.activate = Lang.bind(menu, function() {
-            Main.panelManager.addPanelQuery();
-            this.close(true);
-        });
-        menu.addMenuItem(menu.addPanelItem);
-
-        // menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem()); // separator line
-
-
-        // menu.copyAppletItem = new PopupMenu.PopupIconMenuItem(_("Copy applets"), "xsi-edit-copy", St.IconType.SYMBOLIC);
-        // menu.copyAppletItem.activate = Lang.bind(menu, function() {
-        //     AppletManager.copyAppletConfiguration(this.panelId);
-        //     this.close(true);
-        // });
-        // menu.addMenuItem(menu.copyAppletItem);  // submenu item copy applet config
-
-        // menu.pasteAppletItem = new PopupMenu.PopupIconMenuItem(_("Paste applets"), "xsi-edit-paste", St.IconType.SYMBOLIC);
-        // menu.pasteAppletItem.activate = Lang.bind(menu, function() {
-        //     let dialog = new ModalDialog.ConfirmDialog(
-        //             _("Pasting applet configuration will remove all existing applets on this panel. Do you want to continue?") + "\n\n",
-        //             Lang.bind(this, function() {
-        //                 AppletManager.pasteAppletConfiguration(this.panelId);
-        //             }));
-        //     dialog.open();
-        // });
-        // menu.addMenuItem(menu.pasteAppletItem); // submenu item paste applet config
-
-        // menu.clearAppletItem = new PopupMenu.PopupIconMenuItem(_("Clear all applets"), "xsi-edit-clear-all", St.IconType.SYMBOLIC);
-        // menu.clearAppletItem.activate = Lang.bind(menu, function() {
-        //     let dialog = new ModalDialog.ConfirmDialog(
-        //             _("Are you sure you want to clear all applets on this panel?") + "\n\n",
-        //             Lang.bind(this, function() {
-        //                 AppletManager.clearAppletConfiguration(this.panelId);
-        //             }));
-        //     dialog.open();
-        // });
-
-        // menu.addMenuItem(menu.clearAppletItem);  // submenu item clear all applets
-
-        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem()); // separator line
-
-        menu.troubleshootItem = new PopupMenu.PopupSubMenuMenuItem(_("Troubleshoot"));
-        menu.troubleshootItem.menu.addAction(_("Restart Cinnamon"), function(event) {
-            Main.restartCinnamon(true);
-        });
-
-        menu.troubleshootItem.menu.addAction(_("Looking Glass"), function(event) {
-            Main.createLookingGlass().open();
-        });
-
-        menu.troubleshootItem.menu.addAction(_("Restore all settings to default"), function(event) {
-            let confirm = new ModalDialog.ConfirmDialog(_("Are you sure you want to restore all settings to default?\n\n"),
-                    function() {
-                        Util.spawnCommandLine("gsettings reset-recursively org.cinnamon");
-                        Util.spawnCommandLine("gsettings reset-recursively org.cinnamon.desktop.input-sources");
-                        Main.restartCinnamon(true);
-                    });
-            confirm.open();
-        });
-
-        menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem()); // separator line
-        menu.addMenuItem(menu.troubleshootItem);
-
-        this.addMenuItem(new SettingsLauncher(_("System Settings"), "", "xsi-preferences"));
+        const contextButtonLayout = new ContextMenuButtonLayout(this);
+        this.box.add_child(contextButtonLayout);
     },
 
     open: function(animate) {

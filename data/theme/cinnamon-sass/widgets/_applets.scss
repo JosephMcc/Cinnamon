@@ -40,6 +40,7 @@ $applet_padding: 6px;
 
 .applet-title-box {
   padding: $base_padding $base_padding * 2;
+  spacing: $base_padding;
 
   .title { @extend %title_2; }
 
