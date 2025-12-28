@@ -1,14 +1,16 @@
 const Applet = imports.ui.applet;
 const Clutter = imports.gi.Clutter;
+const GObject = imports.gi.GObject;
 const Gio = imports.gi.Gio;
+const Pango = imports.gi.Pango;
 const Interfaces = imports.misc.interfaces
-const Lang = imports.lang;
 const St = imports.gi.St;
 const Tooltips = imports.ui.tooltips;
 const UPowerGlib = imports.gi.UPowerGlib;
 const PopupMenu = imports.ui.popupMenu;
 const Main = imports.ui.main;
 const Settings = imports.ui.settings;
+const Util = imports.misc.util;
 
 const BrightnessBusName = "org.cinnamon.SettingsDaemon.Power.Screen";
 const KeyboardBusName = "org.cinnamon.SettingsDaemon.Power.Keyboard";
@@ -166,8 +168,13 @@ class DeviceItem extends PopupMenu.PopupBaseMenuItem {
 
         let [device_id, vendor, model, device_kind, icon, percentage, state, battery_level, time] = device;
 
-        this._box = new St.BoxLayout({ style_class: 'popup-device-menu-item' });
-        this._vbox = new St.BoxLayout({ style_class: 'popup-device-menu-item', vertical: true });
+        this._box = new St.BoxLayout({
+            style_class: 'power-device',
+        });
+        this._vbox = new St.BoxLayout({
+            style_class: 'power-device',
+            vertical: true,
+        });
 
         let description = deviceKindToString(device_kind);
         if (vendor != "" || model != "") {
@@ -191,28 +198,49 @@ class DeviceItem extends PopupMenu.PopupBaseMenuItem {
         let statusLabel = null;
 
         if (battery_level == UPDeviceLevel.NONE) {
-            this.label = new St.Label({ text: "%s %d%%".format(description, Math.round(percentage)) });
-            statusLabel = new St.Label({ text: "%s".format(status), style_class: 'popup-inactive-menu-item' });
+            this.label = new St.Label({
+                text: "%s %d%%".format(description, Math.round(percentage)),
+                style_class: 'device-name',
+            });
+            statusLabel = new St.Label({
+                text: "%s".format(status),
+                style_class: 'device-status',
+            });
         } else {
-            this.label = new St.Label({ text: "%s".format(description) });
-            statusLabel = new St.Label({ text: "%s".format(deviceLevelToString(battery_level)), style_class: 'popup-inactive-menu-item' });
+            this.label = new St.Label({
+                text: "%s".format(description),
+                style_class: 'device-name',
+            });
+            statusLabel = new St.Label({
+                text: "%s".format(deviceLevelToString(battery_level)),
+                style_class: 'device-status',
+            });
         }
 
         let device_icon = deviceKindToIcon(device_kind, icon);
         if (device_icon == icon) {
-            this._icon = new St.Icon({ gicon: Gio.icon_new_for_string(icon), icon_type: St.IconType.SYMBOLIC, style_class: 'popup-menu-icon' });
+            this._icon = new St.Icon({
+                style_class: 'device-icon',
+                gicon: Gio.icon_new_for_string(icon),
+                icon_type: St.IconType.SYMBOLIC,
+                icon_size: 24,
+            });
         }
         else {
-            this._icon = new St.Icon({ icon_name: device_icon, icon_type: St.IconType.SYMBOLIC, icon_size: 16 });
+            this._icon = new St.Icon({
+                style_class: 'device-icon',
+                icon_name: device_icon,
+                icon_type: St.IconType.SYMBOLIC,
+                icon_size: 24,
+            });
         }
 
-        this._box.add_actor(this._icon);
-        this._box.add_actor(this.label);
+        this._box.add_child(this._icon);
+        this._vbox.add_child(this.label);
+        this._vbox.add_child(statusLabel);
+        this._box.add_child(this._vbox);
 
-        this._vbox.add_actor(this._box);
-        this._vbox.add_actor(statusLabel);
-
-        this.addActor(this._vbox);
+        this.addActor(this._box);
 
     }
 }
@@ -227,26 +255,46 @@ class BrightnessSlider extends PopupMenu.PopupSliderMenuItem {
         this._minimum_value = minimum_value;
         this._step = .05;
 
-        this.connect("drag-begin", Lang.bind(this, function () {
+        this.connect("drag-begin", () => {
             this._seeking = true;
-        }));
-        this.connect("drag-end", Lang.bind(this, function () {
+        });
+        this.connect("drag-end", () => {
             this._seeking = false;
-        }));
+        });
 
-        this.icon = new St.Icon({ icon_name: icon, icon_type: St.IconType.SYMBOLIC, icon_size: 16 });
+        const hbox = new St.BoxLayout({ style_class: 'power-device' });
+        this.icon = new St.Icon({
+            style_class: 'device-icon',
+            icon_name: icon,
+            icon_type: St.IconType.SYMBOLIC,
+            icon_size: 24,
+        });
+        hbox.add_child(this.icon);
+
+        const vbox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'power-device',
+        });
+        hbox.add_child(vbox);
+
+        const title = new St.Label({
+            text: label,
+            style_class: 'device-status',
+        });
+        vbox.add_child(title);
+
         this.removeActor(this._slider);
-        this.addActor(this.icon, { span: 0 });
-        this.addActor(this._slider, { span: -1, expand: true });
+        vbox.add_child(this._slider);
+        this.addActor(hbox, { span: -1, expand: true });
 
         this.label = label;
         this.tooltipText = label;
         this.tooltip = new Tooltips.Tooltip(this.actor, this.tooltipText);
 
-        Interfaces.getDBusProxyAsync(busName, Lang.bind(this, function (proxy, error) {
+        Interfaces.getDBusProxyAsync(busName, (proxy, error) => {
             this._proxy = proxy;
-            this._proxy.GetPercentageRemote(Lang.bind(this, this._dbusAcquired));
-        }));
+            this._proxy.GetPercentageRemote(this._dbusAcquired.bind(this));
+        });
     }
 
     _dbusAcquired(b, error) {
@@ -271,13 +319,13 @@ class BrightnessSlider extends PopupMenu.PopupSliderMenuItem {
 
         this._updateBrightnessLabel(b);
         this.setValue(b / 100);
-        this.connect("value-changed", Lang.bind(this, this._sliderChanged));
+        this.connect("value-changed", this._sliderChanged.bind(this));
 
         this.actor.show();
 
         //get notified
-        this._proxy.connectSignal('Changed', Lang.bind(this, this._getBrightness));
-        this._applet.menu.connect("open-state-changed", Lang.bind(this, this._getBrightnessForcedUpdate));
+        this._proxy.connectSignal('Changed', this._getBrightness.bind(this));
+        this._applet.menu.connect("open-state-changed", this._getBrightnessForcedUpdate.bind(this));
     }
 
     _sliderChanged(slider, value) {
@@ -320,16 +368,16 @@ class BrightnessSlider extends PopupMenu.PopupSliderMenuItem {
     }
 
     _getBrightnessForcedUpdate() {
-        this._proxy.GetPercentageRemote(Lang.bind(this, function (b) {
+        this._proxy.GetPercentageRemote((b) => {
             this._updateBrightnessLabel(b);
             this.setValue(b / 100);
-        }));
+        });
     }
 
     _setBrightness(value) {
-        this._proxy.SetPercentageRemote(value, Lang.bind(this, function (b) {
+        this._proxy.SetPercentageRemote(value, (b) => {
             this._updateBrightnessLabel(b);
-        }));
+        });
     }
 
     _updateBrightnessLabel(value) {
@@ -357,6 +405,60 @@ class BrightnessSlider extends PopupMenu.PopupSliderMenuItem {
     }
 }
 
+var ProfilesLayout = GObject.registerClass(
+class ProfilesLayout extends St.BoxLayout {
+    _init() {
+        super._init({
+            style_class: 'profiles-layout',
+            vertical: true,
+        });
+
+        const label = new St.Label({
+            style_class: 'title',
+            text: _("Power Profile"),
+            x_align: Clutter.ActorAlign.CENTER,
+        });
+        this.add_child(label);
+
+        this._buttonBox = new St.BoxLayout({
+            layout_manager: new Clutter.BoxLayout({
+                homogeneous: true,
+                spacing: 12,
+            }),
+        });
+        this.add_child(this._buttonBox);
+    }
+
+    addButton(profileName, checked) {
+        let iconName = 'balanced';
+        if (profileName === 'Balanced')
+            iconName = 'xsi-power-profile-balanced-symbolic';
+        if (profileName === 'Performance')
+            iconName = 'xsi-power-profile-performance-symbolic';
+        if (profileName === 'Power Saver')
+            iconName = 'xsi-power-profile-power-saver-symbolic';
+
+        const icon = new St.Icon ({
+            icon_name: iconName,
+            icon_type: St.IconType.SYMBOLIC,
+        });
+
+        const button = new St.Button({
+            style_class: 'icon-button',
+            toggle_mode: true,
+            checked: checked,
+        });
+        button.set_x_align(Clutter.ActorAlign.CENTER);
+        button.child = icon;
+
+        const tooltip = new Tooltips.Tooltip(button, profileName);
+
+        this._buttonBox.add_child(button);
+
+        return button;
+    }
+});
+
 class CinnamonPowerApplet extends Applet.TextIconApplet {
     constructor(metadata, orientation, panel_height, instanceId) {
         super(orientation, panel_height, instanceId);
@@ -372,6 +474,7 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
 
         this.menuManager = new PopupMenu.PopupMenuManager(this);
         this.menu = new Applet.AppletPopupMenu(this, orientation);
+        this.menu.setCustomStyleClass('power-applet');
         this.menuManager.addMenu(this.menu);
 
         this.aliases = global.settings.get_strv("device-aliases");
@@ -381,10 +484,35 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
         this._primaryDeviceId = null;
         this.panel_icon_name = ''; // remember the panel icon name (so we only set it when it actually changes)
 
+        const titleBox = new St.BoxLayout({ style_class: 'applet-title-box' });
+        const label = new St.Label({
+            style_class: 'title',
+            text: _("Power"),
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        titleBox.add_child(label);
+        const spacer = new St.BoxLayout({ x_expand: true });
+        titleBox.add_child(spacer);
+        const icon = new St.Icon ({
+            icon_name: 'xsi-preferences-symbolic',
+            icon_type: St.IconType.SYMBOLIC,
+        });
+        const button = new St.Button({
+            style_class: 'icon-button',
+        });
+        button.child = icon;
+        button.connect('clicked', () => {
+            Util.spawnCommandLine("cinnamon-settings power");
+            this.menu.close();
+        });
+        titleBox.add_child(button);
+        this.menu.box.add_child(titleBox);
+
+        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
         this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-        this.brightness = new BrightnessSlider(this, _("Brightness"), "display-brightness", BrightnessBusName, 0);
-        this.keyboard = new BrightnessSlider(this, _("Keyboard backlight"), "keyboard-brightness", KeyboardBusName, 0);
+        this.brightness = new BrightnessSlider(this,_("Display Brightness"), "display-brightness-symbolic", BrightnessBusName, 0);
+        this.keyboard = new BrightnessSlider(this, _("Keyboard backlight"), "keyboard-brightness-symbolic", KeyboardBusName, 0);
         this.menu.addMenuItem(this.brightness);
         this.menu.addMenuItem(this.keyboard);
 
@@ -417,9 +545,10 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
         } catch {
            this._profilesProxy = null;
         }
-        
+
         if (this._profilesProxy && this._profilesProxy.Profiles) {
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+
             this.contentSection = new PopupMenu.PopupMenuSection();
 
             this.ActiveProfile = this._profilesProxy.ActiveProfile;
@@ -436,18 +565,14 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
             this._updateProfile();
         }
 
-        this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-        this.menu.addSettingsAction(_("Power Settings"), 'power');
-
-        this.actor.connect("scroll-event", Lang.bind(this, this._onScrollEvent));
+        this.actor.connect("scroll-event", this._onScrollEvent.bind(this));
 
         this._proxy = null;
 
-        global.settings.connect('changed::' + PANEL_EDIT_MODE_KEY, Lang.bind(this, this._onPanelEditModeChanged));
+        global.settings.connect('changed::' + PANEL_EDIT_MODE_KEY, this._onPanelEditModeChanged.bind(this));
 
         this.csd_power_watch_id = Gio.bus_watch_name(Gio.BusType.SESSION, "org.cinnamon.SettingsDaemon.Power", 0, (c, name) => {
-            Interfaces.getDBusProxyAsync("org.cinnamon.SettingsDaemon.Power", Lang.bind(this, function (proxy, error) {
+            Interfaces.getDBusProxyAsync("org.cinnamon.SettingsDaemon.Power", (proxy, error) => {
                 Gio.bus_unwatch_name(this.csd_power_watch_id);
                 this.csd_power_watch_id = 0;
 
@@ -458,13 +583,13 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
 
                 this._proxy = proxy;
 
-                this._proxy.connect("g-properties-changed", Lang.bind(this, this._devicesChanged));
-                global.settings.connect('changed::device-aliases', Lang.bind(this, this._on_device_aliases_changed));
+                this._proxy.connect("g-properties-changed", this._devicesChanged.bind(this));
+                global.settings.connect('changed::device-aliases', this._on_device_aliases_changed.bind(this));
                 this.settings.bind("labelinfo", "labelinfo", this._devicesChanged);
                 this.settings.bind("showmulti", "showmulti", this._devicesChanged);
 
                 this._devicesChanged();
-            }));
+            });
         }, null);
 
         this.set_show_label_in_vertical_panels(false);
@@ -620,23 +745,24 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
     }
 
     _updateProfile() {
-        this.contentSection.removeAll();
+        this.profileLayout?.destroy();
+
+        this.profileLayout = new ProfilesLayout();
+        this.contentSection.actor.add_child(this.profileLayout);
 
         for (let profileNum = 0; profileNum < this.Profiles.length; profileNum++) {
             let profileName = this.Profiles[profileNum].Profile.unpack();
             let item;
             if (profileName == this.ActiveProfile) {
                 this.profileIndex = profileNum;
-                item = new PopupMenu.PopupMenuItem(POWER_PROFILES[profileName], { style_class: 'popup-device-menu-item', reactive: false });
-                item.setShowDot(true);
+                item = this.profileLayout.addButton(POWER_PROFILES[profileName], true);
             } else {
-                item = new PopupMenu.PopupMenuItem(POWER_PROFILES[profileName]);
-                item.connect("activate", Lang.bind(this, function () {
+                item = this.profileLayout.addButton(POWER_PROFILES[profileName], false);
+                item.connect('clicked', () => {
                     this._changeProfile(profileName);
                     this.menu.toggle();
-                }));
+                });
             }
-            this.contentSection.addMenuItem(item);
         }
 
         this.menu.addMenuItem(this.contentSection);
@@ -657,7 +783,7 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
             return;
 
         // Identify the primary battery device
-        this._proxy.GetPrimaryDeviceRemote(Lang.bind(this, function (device, error) {
+        this._proxy.GetPrimaryDeviceRemote((device, error) => {
             if (error) {
                 this._primaryDeviceId = null;
             }
@@ -671,7 +797,7 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
             }
 
             // Scan battery devices
-            this._proxy.GetDevicesRemote(Lang.bind(this, function (result, error) {
+            this._proxy.GetDevicesRemote((result, error) => {
                 this._deviceItems.forEach(function (i) { i.destroy(); });
                 this._deviceItems = [];
                 let devices_stats = [];
@@ -821,8 +947,8 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
                         }
                     }
                 }
-            }));
-        }));
+            });
+        });
     }
 
     on_applet_removed_from_panel() {

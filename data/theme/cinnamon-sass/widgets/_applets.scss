@@ -38,6 +38,24 @@ $applet_padding: 6px;
   }
 }
 
+.applet-title-box {
+  padding: $base_padding $base_padding * 2;
+
+  .title { @extend %title_2; }
+
+  .icon-button {
+    @extend %button;
+
+    border-radius: 9999px;
+    padding: $base_padding;
+    min-height: 16px;
+
+    StIcon {
+      icon-size: 16px;
+    }
+  }
+}
+
 // cornerbar applet
 
 .applet-cornerbar {
@@ -82,24 +100,48 @@ $applet_padding: 6px;
 
 // power applet
 
-.device-box {
+.power-applet {
 
-  .device-icon {
-    icon-size: to_em(24px);
-    color: $fg_color;
-  }
+  .power-device {
+    spacing: 2px;
 
-  .device-labels {
-    margin-left: $base_margin * 2;
-    spacing: $base_margin;
-
-    .primary-label {
-      @extend %heading;
-
+    .device-icon {
       color: $fg_color;
+      padding-right: $base_padding;
     }
 
-    .status-label { color: $light_text_color; }
+    .device-name { color: $fg_color; }
+
+    .device-status {
+      font-weight: normal;
+      color: $insensitive_fg_color;
+    }
+
+    .popup-slider-menu-item { padding-top: 2px; }
+  }
+
+  .profiles-layout {
+    spacing: $base_padding * 2;
+    padding-top: $base_padding;
+    padding-bottom: $base_padding * 1.5;
+    padding-left: $base_padding * 2;
+    padding-right: $base_padding * 2;
+
+    .title { @extend %heading; }
+
+    .icon-button {
+      @extend %button;
+
+      border-radius: 9999px;
+      padding: $base_padding;
+      min-height: 16px;
+
+      StIcon {
+        icon-size: 32px;
+      }
+
+      &:checked { background-color: $accent_bg_color; }
+    }
   }
 }
 
