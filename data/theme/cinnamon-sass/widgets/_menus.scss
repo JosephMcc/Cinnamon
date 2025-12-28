@@ -117,21 +117,6 @@ $menuitem_border_radius: $base_border_radius * 1;
 // this is not currently being used anywhere
 .popup-alternating-menu-item:alternate { font-weight: normal; }
 
-// Used in the power applet for display of battery items
-.popup-device-menu-item {
-  spacing: .5em;
-
-  @extend %heading;
-  color: $fg_color;
-
-  &:insensitive { color: $fg_color; }
-
-  .popup-inactive-menu-item {
-    font-weight: normal;
-    color: $fg_color;
-  }
-}
-
 // Used in window quick list and power applet
 .popup-subtitle-menu-item { font-weight: normal; }
 
