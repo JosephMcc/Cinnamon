@@ -445,6 +445,7 @@ class ProfilesLayout extends St.BoxLayout {
 
         const button = new St.Button({
             style_class: 'icon-button',
+            can_focus: true,
             toggle_mode: true,
             checked: checked,
         });
@@ -499,6 +500,7 @@ class CinnamonPowerApplet extends Applet.TextIconApplet {
         });
         const button = new St.Button({
             style_class: 'icon-button',
+            can_focus: true,
         });
         button.child = icon;
         button.connect('clicked', () => {
