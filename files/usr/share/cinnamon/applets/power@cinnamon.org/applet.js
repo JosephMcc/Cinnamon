@@ -445,7 +445,10 @@ class ProfilesLayout extends St.BoxLayout {
 
         const button = new St.Button({
             style_class: 'icon-button',
+<<<<<<< HEAD
             can_focus: true,
+=======
+>>>>>>> panel-context-menu
             toggle_mode: true,
             checked: checked,
         });
