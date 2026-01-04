@@ -4,6 +4,14 @@
 const { Clutter, GObject, Cinnamon, St } = imports.gi;
 
 const Main = imports.ui.main;
+// const Panel = imports.ui.panel;
+
+var PanelLoc = {
+    top : 0,
+    bottom : 1,
+    left : 2,
+    right : 3
+};
 
 var PopupAnimation = {
     NONE:  0,
@@ -40,15 +48,13 @@ var BoxPointer = GObject.registerClass({
         this._arrowOrigin = 0;
         this._arrowActor = null;
         this.bin = new St.Bin(binProperties);
-        this.add_actor(this.bin);
+        this.add_child(this.bin);
         this._border = new St.DrawingArea();
         this._border.connect('repaint', this._drawBorder.bind(this));
-        this.add_actor(this._border);
+        this.add_child(this._border);
         this.set_child_above_sibling(this.bin, this._border);
         this._sourceAlignment = 0.5;
         this._muteInput = true;
-
-        this.connect('destroy', this._onDestroy.bind(this));
     }
 
     vfunc_captured_event() {
@@ -56,13 +62,6 @@ var BoxPointer = GObject.registerClass({
             return Clutter.EVENT_STOP;
 
         return Clutter.EVENT_PROPAGATE;
-    }
-
-    _onDestroy() {
-        if (this._sourceActorDestroyId) {
-            this._sourceActor.disconnect(this._sourceActorDestroyId);
-            delete this._sourceActorDestroyId;
-        }
     }
 
     get arrowSide() {
@@ -126,10 +125,10 @@ var BoxPointer = GObject.registerClass({
         if (animate & PopupAnimation.SLIDE) {
             switch (this._arrowSide) {
             case St.Side.TOP:
-                translationY = rise;
+                translationY = -rise;
                 break;
             case St.Side.BOTTOM:
-                translationY = -rise;
+                translationY = rise;
                 break;
             case St.Side.LEFT:
                 translationX = rise;
@@ -259,8 +258,6 @@ var BoxPointer = GObject.registerClass({
 
         let halfBorder = borderWidth / 2;
         let halfBase = Math.floor(base / 2);
-
-        let backgroundColor = themeNode.get_color('-arrow-background-color');
 
         let [width, height] = area.get_surface_size();
         let [boxWidth, boxHeight] = [width, height];
@@ -404,8 +401,12 @@ var BoxPointer = GObject.registerClass({
                    Math.PI, 3 * Math.PI / 2);
         }
 
-        Clutter.cairo_set_source_color(cr, backgroundColor);
-        cr.fillPreserve();
+        const [hasColor, bgColor] =
+            themeNode.lookup_color('-arrow-background-color', false);
+        if (hasColor) {
+            Clutter.cairo_set_source_color(cr, bgColor);
+            cr.fillPreserve();
+        }
 
         if (borderWidth > 0) {
             let borderColor = themeNode.get_color('-arrow-border-color');
@@ -419,19 +420,12 @@ var BoxPointer = GObject.registerClass({
 
     setPosition(sourceActor, alignment) {
         if (!this._sourceActor || sourceActor != this._sourceActor) {
-            if (this._sourceActorDestroyId) {
-                this._sourceActor.disconnect(this._sourceActorDestroyId);
-                delete this._sourceActorDestroyId;
-            }
+            this._sourceActor?.disconnectObject(this);
 
             this._sourceActor = sourceActor;
 
-            if (this._sourceActor) {
-                this._sourceActorDestroyId = this._sourceActor.connect('destroy', () => {
-                    this._sourceActor = null;
-                    delete this._sourceActorDestroyId;
-                });
-            }
+            this._sourceActor?.connectObject('destroy',
+                () => (this._sourceActor = null), this);
         }
 
         this._arrowAlignment = alignment;
@@ -452,7 +446,8 @@ var BoxPointer = GObject.registerClass({
         let sourceActor = this._sourceActor;
         let alignment = this._arrowAlignment;
 
-        let monitor = Main.layoutManager.findMonitorForActor(sourceActor);
+        // let monitor = Main.layoutManager.findMonitorForActor(sourceActor);
+        let monitor = this._calculateWorkArea(sourceActor);
         this._workArea = {x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height};
 
         this._sourceAllocation = Cinnamon.util_get_transformed_allocation(sourceActor);
@@ -614,6 +609,36 @@ var BoxPointer = GObject.registerClass({
         }
 
         return arrowSide;
+    }
+
+    _calculateWorkArea(sourceActor) {
+        // const monitor = Main.layoutManager.findMonitorForActor(sourceActor);
+        const monitor = Main.layoutManager.findMonitorForActor(sourceActor);
+        // global.log(monitor.x);
+        const index = Main.layoutManager.findMonitorIndexForActor(sourceActor);
+        let monitorArea = {x: monitor.x, y: monitor.y, width: monitor.width, height: monitor.height};
+        const panels = Main.panelManager.getPanelsInMonitor(index);
+
+        for (let panel of panels) {
+            switch (panel.panelPosition) {
+            case PanelLoc.top:
+                monitorArea.y += panel.actor.height;
+                monitorArea.height -= panel.actor.height;
+                break;
+            case PanelLoc.bottom:
+                monitorArea.height -= panel.actor.height;
+                break;
+            case PanelLoc.left:
+                monitorArea.x += panel.actor.width;
+                monitorArea.width -= panel.actor.width;
+                break;
+            case PanelLoc.right:
+                monitorArea.width -= panel.actor.width;
+                break;
+            }
+        }
+
+        return monitorArea;
     }
 
     _updateFlip(allocationBox) {

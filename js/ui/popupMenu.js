@@ -149,11 +149,13 @@ var PopupBaseMenuItem = class PopupBaseMenuItem {
     }
 
     _onButtonReleaseEvent(actor, event) {
+        global.log("Button release event");
         this.activate(event, false);
         return true;
     }
 
     _onKeyPressEvent(actor, event) {
+        global.log("Key press event");
         let symbol = event.get_key_symbol();
 
         if (symbol === Clutter.KEY_space ||
@@ -1733,13 +1735,17 @@ var PopupMenuBase = class PopupMenuBase {
         this.sourceActor = sourceActor;
 
         this._signals = new SignalManager.SignalManager(null);
-        if (styleClass !== undefined) {
-            this.box = new St.BoxLayout({ style_class: styleClass,
-                                          vertical: true });
-        } else {
-            this.box = new St.BoxLayout({ vertical: true });
-        }
-        this._signals.connect_after(this.box, 'queue-relayout', Lang.bind(this, this._menuQueueRelayout));
+
+        this.box = new St.BoxLayout({
+            vertical: true,
+            x_expand: true,
+            y_expand: true,
+        });
+
+        if (styleClass !== undefined)
+            this.box.style_class = styleClass;
+
+        // this._signals.connect_after(this.box, 'queue-relayout', Lang.bind(this, this._menuQueueRelayout));
         this.length = 0;
 
         this.isOpen = false;
@@ -1919,6 +1925,7 @@ var PopupMenuBase = class PopupMenuBase {
         });
         this._signals.connect(menuItem, 'activate', (menuItem, event, keepMenu) => {
             this.emit('activate', menuItem, keepMenu);
+            global.log("Activate menu item");
             if (!keepMenu){
                 this.close(true);
             }
@@ -2155,6 +2162,7 @@ var PopupMenuBase = class PopupMenuBase {
      * Toggles the open/close state of the menu with extra parameters
      */
     toggle_with_options (animate, onComplete) {
+        // const type = animate ? BoxPointer.PopupAnimation.FULL : BoxPointer.PopupAnimation.NONE;
         if (this.isOpen) {
             this.close(animate, onComplete);
         } else {
@@ -2204,22 +2212,34 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
         this.animating = false;
         this._slidePosition = -1;
 
-        this.actor = new St.Bin({ style_class: 'menu',
-                                  important: true,
-                                  y_fill: true,
-								  x_fill: true });
+        this._arrowAlignment = 0.5;
+        this._orientation = orientation;
+
+        this._boxPointer = new BoxPointer.BoxPointer(orientation);
+        this.actor = this._boxPointer;
         this.actor._delegate = this;
+        this.actor.style_class = 'popup-menu-boxpointer';
+        // this.actor.add_style_class_name('popup-menu-boxpointer');
+
+        this._boxPointer.bin.set_child(this.box);
+        this.actor.add_style_class_name('popup-menu');
+
+        // this.actor = new St.Bin({ style_class: 'menu',
+        //                           important: true,
+        //                           y_fill: true,
+		// 						  x_fill: true });
+        // this.actor._delegate = this;
         this._signals.connect(this.actor, 'key-press-event', Lang.bind(this, this._onKeyPressEvent));
 
         this.setOrientation(orientation);
 
-        this._boxWrapper = new Cinnamon.GenericContainer();
-        this._signals.connect(this._boxWrapper, 'get-preferred-width', Lang.bind(this, this._boxGetPreferredWidth));
-        this._signals.connect(this._boxWrapper, 'get-preferred-height', Lang.bind(this, this._boxGetPreferredHeight));
-        this._signals.connect(this._boxWrapper, 'allocate', Lang.bind(this, this._boxAllocate));
-        this._signals.connect(this.actor, 'notify::allocation', Lang.bind(this, this._allocationChanged));
-        this.actor.set_child(this._boxWrapper);
-        this._boxWrapper.add_actor(this.box);
+        // this._boxWrapper = new Cinnamon.GenericContainer();
+        // this._signals.connect(this._boxWrapper, 'get-preferred-width', Lang.bind(this, this._boxGetPreferredWidth));
+        // this._signals.connect(this._boxWrapper, 'get-preferred-height', Lang.bind(this, this._boxGetPreferredHeight));
+        // this._signals.connect(this._boxWrapper, 'allocate', Lang.bind(this, this._boxAllocate));
+        // this._signals.connect(this.actor, 'notify::allocation', Lang.bind(this, this._allocationChanged));
+        // this.actor.set_child(this._boxWrapper);
+        // this._boxWrapper.add_actor(this.box);
 
         global.focus_manager.add_group(this.actor);
         this.actor.reactive = true;
@@ -2237,7 +2257,7 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
     }
 
     _updateStyleClassName() {
-        let styleClasses = ["menu"];
+        let styleClasses = ["popup-menu-boxpointer", "popup-menu"];
         if (this.customStyleClass) {
             styleClasses.push(this.customStyleClass);
         }
@@ -2295,11 +2315,13 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
      * Since the boxpointer was removed from the menu, this function now does nothing. Please do not use this
      * function in new code.
      */
-    setSourceAlignment(alignment) {}
+    setSourceAlignment(alignment) {
+        this._boxPointer.setSourceAlignment(alignment);
+    }
 
     /**
      * getPanel:
-     * 
+     *
      * @returns panel (Clutter.Actor | null) actor of the panel this menu is on, or null if it is not on a panel 
      */
     getPanel() {
@@ -2330,7 +2352,8 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
         if (this.isOpen || this.actor.is_finalized())
             return;
 
-        Main.popup_rendering_actor = this.actor;
+        // Main.popup_rendering_actor = this.actor;
+        const type = animate ? BoxPointer.PopupAnimation.FULL : BoxPointer.PopupAnimation.NONE;
 
         this.setMaxHeight();
         this._updateAllSeparatorVisibility();
@@ -2342,81 +2365,86 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
 
         Main.panelManager.updatePanelsVisibility();
 
-        this._signals.connect(this.actor, "paint", Lang.bind(this, this.on_paint));
+        // this._signals.connect(this.actor, "paint", Lang.bind(this, this.on_paint));
 
         /* If the sourceActor of our menu is located on a panel or from the panel itself, we want to position it just
            below the panel actors. This prevents some cases where the menu will otherwise partially overlap the panel
            and look strange visually */
-        let parentPanel = this.getPanel();
+        // let parentPanel = this.getPanel();
 
-        if (parentPanel) {
-            let monitor = Main.layoutManager.findMonitorForActor(this.sourceActor)
-            let panels = Main.panelManager.getPanelsInMonitor(monitor.index);
-            let children = Main.uiGroup.get_children();
-            let panelIndex = children.indexOf(parentPanel);
+        // if (parentPanel) {
+        //     let monitor = Main.layoutManager.findMonitorForActor(this.sourceActor)
+        //     let panels = Main.panelManager.getPanelsInMonitor(monitor.index);
+        //     let children = Main.uiGroup.get_children();
+        //     let panelIndex = children.indexOf(parentPanel);
 
-            for (let i = 0; i < panels.length; i++) {
-                let idx = children.indexOf(panels[i].actor);
-                if (idx < panelIndex)
-                    panelIndex = idx;
-            }
+        //     for (let i = 0; i < panels.length; i++) {
+        //         let idx = children.indexOf(panels[i].actor);
+        //         if (idx < panelIndex)
+        //             panelIndex = idx;
+        //     }
 
-            Main.uiGroup.set_child_below_sibling(this.actor, Main.uiGroup.get_child_at_index(panelIndex));
-        } else {
-            Main.uiGroup.set_child_above_sibling(this.actor, null);
-        }
+        //     Main.uiGroup.set_child_below_sibling(this.actor, Main.uiGroup.get_child_at_index(panelIndex));
+        // } else {
+        //     Main.uiGroup.set_child_above_sibling(this.actor, null);
+        // }
 
-        if (animate && Main.wm.desktop_effects_menus) {
-            this.animating = true;
-            this.actor.show();
-            this.actor.opacity = 0;
+        this._boxPointer.setPosition(this.sourceActor, this._arrowAlignment);
+        this._boxPointer.open(type, () => {
+            this.emit('open-state-changed', true);
+        });
 
-            let easeParams = {
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                duration: Main.wm.MENU_ANIMATION_TIME,
-                opacity: 255,
-                onComplete: () => {
-                    this.animating = false;
-                }
-            }
+        // if (animate && Main.wm.desktop_effects_menus) {
+        //     this.animating = true;
+        //     this.actor.show();
+        //     this.actor.opacity = 0;
 
-            let [xPos, yPos] = this._calculatePosition();
+        //     let easeParams = {
+        //         mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        //         duration: Main.wm.MENU_ANIMATION_TIME,
+        //         opacity: 255,
+        //         onComplete: () => {
+        //             this.animating = false;
+        //         }
+        //     }
 
-            switch (this._orientation) {
-                case St.Side.TOP:
-                case St.Side.BOTTOM:
-                    this.actor.x = xPos;
-                    easeParams["y"] = yPos;
-                    yPos -= this.actor.margin_top;
-                    if (this.sideFlipped) // Bottom
-                        this.actor.y = yPos + MENU_ANIMATION_OFFSET + this.actor.margin_top;
-                    else // Top
-                        this.actor.y = yPos - MENU_ANIMATION_OFFSET + this.actor.margin_bottom;
-                    break;
-                case St.Side.LEFT:
-                case St.Side.RIGHT:
-                    this.actor.y = yPos;
-                    easeParams["x"] = xPos;
-                    xPos -= this.actor.margin_left;
-                    if (this.sideFlipped) // Right
-                        this.actor.x = xPos + MENU_ANIMATION_OFFSET + this.actor.margin_left;
-                    else // Left
-                        this.actor.x = xPos - MENU_ANIMATION_OFFSET + this.actor.margin_right;
-                    break;
-            }
+        //     let [xPos, yPos] = this._calculatePosition();
 
-            this.actor.ease(easeParams);
-        } else {
-            this.animating = false;
+        //     switch (this._orientation) {
+        //         case St.Side.TOP:
+        //         case St.Side.BOTTOM:
+        //             this.actor.x = xPos;
+        //             easeParams["y"] = yPos;
+        //             yPos -= this.actor.margin_top;
+        //             if (this.sideFlipped) // Bottom
+        //                 this.actor.y = yPos + MENU_ANIMATION_OFFSET + this.actor.margin_top;
+        //             else // Top
+        //                 this.actor.y = yPos - MENU_ANIMATION_OFFSET + this.actor.margin_bottom;
+        //             break;
+        //         case St.Side.LEFT:
+        //         case St.Side.RIGHT:
+        //             this.actor.y = yPos;
+        //             easeParams["x"] = xPos;
+        //             xPos -= this.actor.margin_left;
+        //             if (this.sideFlipped) // Right
+        //                 this.actor.x = xPos + MENU_ANIMATION_OFFSET + this.actor.margin_left;
+        //             else // Left
+        //                 this.actor.x = xPos - MENU_ANIMATION_OFFSET + this.actor.margin_right;
+        //             break;
+        //     }
 
-            let [xPos, yPos] = this._calculatePosition(); // should this be conditional on this._slidePosition being -1?
-            this.actor.x = xPos;
-            this.actor.y = yPos;
+        //     this.actor.ease(easeParams);
+        // } else {
+        //     this.animating = false;
 
-            this.actor.show();
-        }
+        //     let [xPos, yPos] = this._calculatePosition(); // should this be conditional on this._slidePosition being -1?
+        //     this.actor.x = xPos;
+        //     this.actor.y = yPos;
 
-        this.emit('open-state-changed', true);
+        //     this.actor.show();
+        // }
+
+        // this.emit('open-state-changed', true);
     }
 
     /**
@@ -2429,6 +2457,8 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
         if (!this.isOpen)
             return;
 
+        const type = animate ? BoxPointer.PopupAnimation.FULL : BoxPointer.PopupAnimation.NONE;
+
         this.isOpen = false;
         global.menuStack.splice(global.menuStack.indexOf(this), 1);
 
@@ -2437,58 +2467,65 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
 
         let did_animate = false;
 
-        if (animate && Main.wm.desktop_effects_menus) {
-            did_animate = true;
+        this._boxPointer.close(type, () => {
+            this.emit('open-state-changed', false);
+            this.emit('menu-animated-closed');
+            Main.panelManager.updatePanelsVisibility();
+        });
 
-            this.actor.set_position(...this._calculatePosition());
-            this.actor.set_size(...this.actor.get_size());
-            this.animating = true;
-            let easeParams = {
-                mode: Clutter.AnimationMode.EASE_IN_QUAD,
-                duration: Main.wm.MENU_ANIMATION_TIME,
-                opacity: 0,
-                onComplete: () => {
-                    this.animating = false;
-                    this.actor.hide();
-                    this.actor.set_size(-1, -1);
-                    this.actor.opacity = 255;
-                    this.emit("menu-animated-closed");
-                }
-            }
+        // if (animate && Main.wm.desktop_effects_menus) {
+        //     did_animate = true;
 
-            switch (this._orientation) {
-                case St.Side.TOP:
-                case St.Side.BOTTOM:
-                    let yPos = this.actor.y - this.actor.margin_top;
-                    if (this.sideFlipped) // Bottom
-                        easeParams["y"] = yPos + MENU_ANIMATION_OFFSET + this.actor.margin_bottom;
-                    else // Top
-                        easeParams["y"] = yPos - MENU_ANIMATION_OFFSET - this.actor.margin_top;
-                    break;
-                case St.Side.LEFT:
-                case St.Side.RIGHT:
-                    let xPos = this.actor.x - this.actor.margin_left;
-                    if (this.sideFlipped) // Right
-                        easeParams["x"] = xPos + MENU_ANIMATION_OFFSET + this.actor.margin_right;
-                    else // Left
-                        easeParams["x"] = xPos - MENU_ANIMATION_OFFSET - this.actor.margin_left;
-                    break;
-            }
+        //     this.actor.set_position(...this._calculatePosition());
+        //     this.actor.set_size(...this.actor.get_size());
+        //     this.animating = true;
+        //     let easeParams = {
+        //         mode: Clutter.AnimationMode.EASE_IN_QUAD,
+        //         duration: Main.wm.MENU_ANIMATION_TIME,
+        //         opacity: 0,
+        //         onComplete: () => {
+        //             this.animating = false;
+        //             this.actor.hide();
+        //             this.actor.set_size(-1, -1);
+        //             this.actor.opacity = 255;
+        //             this.emit("menu-animated-closed");
+        //         }
+        //     }
 
-            this.actor.ease(easeParams);
-        }
-        else {
-            this.animating = false;
-            this.actor.hide();
-        }
+        //     switch (this._orientation) {
+        //         case St.Side.TOP:
+        //         case St.Side.BOTTOM:
+        //             let yPos = this.actor.y - this.actor.margin_top;
+        //             if (this.sideFlipped) // Bottom
+        //                 easeParams["y"] = yPos + MENU_ANIMATION_OFFSET + this.actor.margin_bottom;
+        //             else // Top
+        //                 easeParams["y"] = yPos - MENU_ANIMATION_OFFSET - this.actor.margin_top;
+        //             break;
+        //         case St.Side.LEFT:
+        //         case St.Side.RIGHT:
+        //             let xPos = this.actor.x - this.actor.margin_left;
+        //             if (this.sideFlipped) // Right
+        //                 easeParams["x"] = xPos + MENU_ANIMATION_OFFSET + this.actor.margin_right;
+        //             else // Left
+        //                 easeParams["x"] = xPos - MENU_ANIMATION_OFFSET - this.actor.margin_left;
+        //             break;
+        //     }
 
-        Main.panelManager.updatePanelsVisibility();
-        this.emit('open-state-changed', false);
+        //     this.actor.ease(easeParams);
+        // }
+        // else {
+        //     this.animating = false;
+        //     this.actor.hide();
+        // }
+
+        // Main.panelManager.updatePanelsVisibility();
+        // this.emit('open-state-changed', false);
+        // this.emit("menu-animated-closed");
 
         // keep the order of open-state-changed -> menu-animated-closed in case it matters.
-        if (!did_animate) {
-            this.emit("menu-animated-closed");
-        }
+        // if (!did_animate) {
+        //     this.emit("menu-animated-closed");
+        // }
     }
 
     /**
@@ -2587,6 +2624,7 @@ var PopupMenu = class PopupMenu extends PopupMenuBase {
                 // get center position of the actor and calculate the position needed to center the menu on the actor
                 let xCenter = (this._slidePosition == -1) ? sourceBox.x1 + (sourceBox.x2 - sourceBox.x1) / 2 : this._slidePosition;
                 xPos = xCenter - (natWidth / 2);
+                global.log(xPos);
 
                 // we don't want to go off the screen so we adjust if needed
                 if (xPos < x1) xPos = x1;
@@ -3664,28 +3702,39 @@ var PopupMenuManager = class PopupMenuManager {
     }
 
     _onEventCapture(actor, event) {
-        if (!this.grabbed)
+        // global.log("Event Capture");
+        if (!this.grabbed) {
+            global.log("not grabbed");
             return false;
+        }
 
         if (Main.virtualKeyboardManager.shouldTakeEvent(event))
             return Clutter.EVENT_PROPAGATE;
 
         if (this._owner.menuEventFilter &&
-            this._owner.menuEventFilter(event))
+            this._owner.menuEventFilter(event)) {
+            global.log("Event filtered");
             return true;
+        }
 
-        if (this._activeMenu != null && this._activeMenu.passEvents)
+        if (this._activeMenu != null && this._activeMenu.passEvents) {
+            global.log("pass events");
             return false;
+        }
 
         if (this._didPop) {
+            global.log("did pop");
             this._didPop = false;
             return true;
         }
 
         let activeMenuContains = this._eventIsOnActiveMenu(event);
         let eventType = event.type();
+        // global.log("Still passing events");
+        // global.log(eventType);
 
         if (eventType == Clutter.EventType.BUTTON_RELEASE) {
+            global.log("Button release event type");
             if (activeMenuContains) {
                 return false;
             } else {
@@ -3693,6 +3742,7 @@ var PopupMenuManager = class PopupMenuManager {
                 return true;
             }
         } else if (eventType == Clutter.EventType.BUTTON_PRESS && !activeMenuContains) {
+            global.log("Button press event type");
             this._closeMenu();
             return true;
         } else if (!this._shouldBlockEvent(event)) {

@@ -1,10 +1,14 @@
 $menuitem_border_radius: $base_border_radius * 1;
 
+.popup-menu-boxpointer {
+  -arrow-rise: $base_padding;
+}
+
 //container of the popup menu
 .menu {
   min-width: 15em;
   color: $fg_color;
-  padding: 6px;
+  // padding: 6px;
 }
 
 // popup content

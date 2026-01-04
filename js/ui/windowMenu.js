@@ -129,9 +129,10 @@ MnemonicSubMenuMenuItem.prototype._setLabels = BaseMnemonicMenuItem.prototype._s
 
 var WindowMenu = class extends PopupMenu.PopupMenu {
     constructor(window, sourceActor) {
-        super(sourceActor, 0, St.Side.TOP);
+        super(sourceActor, St.Side.TOP);
 
         this.actor.add_style_class_name('window-menu');
+        this._arrowAlignment = 0.0;
 
         Main.uiGroup.add_actor(this.actor);
         this.actor.hide();
@@ -379,6 +380,8 @@ var WindowMenuManager = class {
         Main.uiGroup.add_actor(this.dummyCursor);
         this.actor = this.dummyCursor;
 
+        // this._manager = new PopupMenu.PopupMenuManager(this);
+
         this.current_menu = null;
         this.current_window = null;
     }
@@ -396,6 +399,7 @@ var WindowMenuManager = class {
         this._wmsignals = new SignalManager.SignalManager(null);
 
         let menu = new WindowMenu(window, this._sourceActor);
+        // menu.setSourceAlignment(0.0);
 
         this._manager.addMenu(menu);
 
@@ -414,13 +418,19 @@ var WindowMenuManager = class {
         this._sourceActor.set_position(rect.x, rect.y);
         this._sourceActor.show();
 
-        let [minWidth, minHeight, natWidth, natHeight] = menu.actor.get_preferred_size();
+        // let [minWidth, minHeight, natWidth, natHeight] = menu.actor.get_preferred_size();
 
-        menu.shiftToPosition((rect.x + natWidth / 2) + 5); // +5 for appearances
+        // menu.shiftToPosition((rect.x + natWidth / 2) + 5); // +5 for appearances
 
-        menu.open();
+        menu.open(true);
         menu.actor.navigate_focus(null, Gtk.DirectionType.TAB_FORWARD, false);
-        this._wmsignals.connect(menu, 'open-state-changed', () => {
+        this._wmsignals.connect(menu, 'open-state-changed', (menu_, isOpen) => {
+            if (isOpen)
+                return;
+
+            // this._sourceActor.hide();
+            // menu.destroy();
+
             this.destroyMenu();
         });
 
@@ -434,8 +444,11 @@ var WindowMenuManager = class {
             this._wmsignals = null;
 
             this._sourceActor.hide();
+            // menu.destroy();
 
             if (this.current_menu) {
+                // this.current_menu.destroy();
+                // this.current_menu = null;
                 this.current_menu.close(false)
                 this._manager.destroy()
                 this._manager = null

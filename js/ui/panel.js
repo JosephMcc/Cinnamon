@@ -1708,6 +1708,13 @@ PanelContextMenu.prototype = {
         this.actor.hide();
         this.panelId = panelId;
 
+        this._dummySource = new St.Widget({
+            reactive: true,
+            visible: false,
+        });
+        Main.uiGroup.add_child(this._dummySource);
+        this.sourceActor = this._dummySource;
+
         let moreSettingsMenuItem = new SettingsLauncher(_("Panel settings"), "panel --panel " + panelId, "xsi-cog");
         this.addMenuItem(moreSettingsMenuItem);
 
@@ -2698,16 +2705,27 @@ Panel.prototype = {
                         switch (this.panelPosition) {
                             case PanelLoc.top:
                             case PanelLoc.bottom:
-                                this._context_menu.shiftToPosition(x);
+                                this._context_menu._arrowAlignment = 0.5
+                                // this._context_menu.shiftToPosition(x);
+                                global.log(actor.y);
+                                yPos = actor.y;
+                                this._context_menu._dummySource.set_position(x, actor.y);
+                                this._context_menu._dummySource.set_size(-1, actor.height);
+                                this._context_menu._dummySource.show();
                                 break;
                             case PanelLoc.left:
                             case PanelLoc.right:
-                                this._context_menu.shiftToPosition(y);
+                                this._context_menu._arrowAlignment = 0.0;
+                                // this._context_menu.shiftToPosition(y);
+                                this._context_menu._dummySource.set_position(actor.x, y);
+                                this._context_menu._dummySource.set_size(actor.width, -1);
+                                this._context_menu._dummySource.show();
                                 break;
                         }
                     }
 
-                    this._context_menu.toggle();
+                    if (!this._context_menu.isOpen)
+                        this._context_menu.open(true);
                 }
             } catch(e) {
                 global.log(e);

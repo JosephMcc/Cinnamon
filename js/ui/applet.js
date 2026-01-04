@@ -48,6 +48,12 @@ var AppletContextMenu = class AppletContextMenu extends PopupMenu.PopupMenu {
         super._init(launcher.actor, orientation);
         Main.uiGroup.add_actor(this.actor);
         this.actor.hide();
+
+        if (orientation === St.Side.RIGHT || orientation === St.Side.LEFT) {
+            this.setSourceAlignment(0.0);
+            this._arrowAlignment = 0.0;
+        }
+
         this.connect("open-state-changed", Lang.bind(this, this._onOpenStateChanged, launcher.actor));
         launcher.connect("orientation-changed", Lang.bind(this, function(a, orientation) {
             this.setArrowSide(orientation);
@@ -81,6 +87,12 @@ var AppletPopupMenu = class AppletPopupMenu extends PopupMenu.PopupMenu {
         Main.uiGroup.add_actor(this.actor);
         this.actor.hide();
         this.launcher = launcher;
+
+        if (orientation === St.Side.RIGHT || orientation === St.Side.LEFT) {
+            this.setSourceAlignment(0.0);
+            this._arrowAlignment = 0.0;
+        }
+
         if (launcher instanceof Applet) {
             this.connect("open-state-changed", Lang.bind(this, this._onOpenStateChanged, launcher));
             launcher.connect("orientation-changed", Lang.bind(this, this._onOrientationChanged));
@@ -90,6 +102,8 @@ var AppletPopupMenu = class AppletPopupMenu extends PopupMenu.PopupMenu {
     }
 
     _onOrientationChanged(a, orientation) {
+        global.log(orientation);
+        // if (orientation === St.Side.RIGHT || orientation === St.Side.LEFT)
         this.setArrowSide(orientation);
     }
 

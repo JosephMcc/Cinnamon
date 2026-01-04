@@ -1153,7 +1153,7 @@ class CinnamonMenuApplet extends Applet.TextIconApplet {
         this.menu.connect('open-state-changed', this._onOpenStateChanged.bind(this));
         this.menu.connect('menu-animated-closed', () => {
             this._clearAllSelections();
-            this._hideAllAppActors();
+            // this._hideAllAppActors();
         });
 
         this.settings.bind("menu-custom", "menuCustom", this._updateIconAndLabel);
@@ -2637,8 +2637,8 @@ class CinnamonMenuApplet extends Applet.TextIconApplet {
         this.updateNavigation();
 
         Mainloop.idle_add(() => {
-            this._clearAllSelections();
-            this._hideAllAppActors();
+            // this._clearAllSelections();
+            // this._hideAllAppActors();
         });
 
         this.a11y_settings = new Gio.Settings({ schema_id: "org.cinnamon.desktop.a11y.applications" });
