@@ -1,11 +1,12 @@
 const Applet = imports.ui.applet;
-const Lang = imports.lang;
+const Clutter = imports.gi.Clutter;
 const Main = imports.ui.main;
 const Gtk = imports.gi.Gtk;
 const Gio = imports.gi.Gio;
 const PopupMenu = imports.ui.popupMenu;
 const St = imports.gi.St;
 const Mainloop = imports.mainloop;
+const Placeholder = imports.ui.placeholder;
 const Urgency = imports.ui.messageTray.Urgency;
 const MessageTray = imports.ui.messageTray;
 const NotificationDestroyedReason = imports.ui.messageTray.NotificationDestroyedReason;
@@ -24,11 +25,11 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         // Settings
         this.settings = new Settings.AppletSettings(this, metadata.uuid, instanceId);
         this.settings.bind("ignoreTransientNotifications", "ignoreTransientNotifications");
-        this.settings.bind("showEmptyTray", "showEmptyTray", this._show_hide_tray);
+        this.settings.bind("showEmptyTray", "showEmptyTray", this._showHideTray);
         this.settings.bind("keyOpen", "keyOpen", this._setKeybinding);
         this.settings.bind("keyClear", "keyClear", this._setKeybinding);
-        this.settings.bind("showNotificationCount", "showNotificationCount", this.update_list);
-        this.settings.bind("showNewestFirst", "showNewestFirst", this.update_list);
+        this.settings.bind("showNotificationCount", "showNotificationCount", this.updateList);
+        this.settings.bind("showNewestFirst", "showNewestFirst", this.updateList);
         this._setKeybinding();
 
         // Layout
@@ -39,32 +40,32 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         this.notifications = [];    // The list of notifications, in order from oldest to newest.
 
         // Events
-        Main.messageTray.connect('notify-applet-update', Lang.bind(this, this._notification_added));
-        this.panelEditModeHandler = global.settings.connect('changed::' + PANEL_EDIT_MODE_KEY, Lang.bind(this, this._on_panel_edit_mode_changed));
+        Main.messageTray.connect('notify-applet-update', this._notificationAdded.bind(this));
+        this.panelEditModeHandler = global.settings.connect('changed::' + PANEL_EDIT_MODE_KEY, this._on_panel_edit_mode_changed.bind(this));
 
         // States
         this._blinking = false;
-        this._blink_toggle = false;
+        this._blinkToggle = false;
     }
 
     _setKeybinding() {
-        Main.keybindingManager.addXletHotKey(this, "notification-open", this.keyOpen, Lang.bind(this, this._openMenu));
-        Main.keybindingManager.addXletHotKey(this, "notification-clear", this.keyClear, Lang.bind(this, this._clear_all));
+        Main.keybindingManager.addXletHotKey(this, "notification-open", this.keyOpen, this._openMenu.bind(this));
+        Main.keybindingManager.addXletHotKey(this, "notification-clear", this.keyClear, this._clearAll.bind(this));
     }
 
     on_applet_removed_from_panel () {
         Main.keybindingManager.removeXletHotKey(this, "notification-open");
         Main.keybindingManager.removeXletHotKey(this, "notification-clear");
         global.settings.disconnect(this.panelEditModeHandler);
-        
+
         MessageTray.extensionsHandlingNotifications--;
         if (MessageTray.extensionsHandlingNotifications === 0) {
-            this._clear_all();
+            this._clearAll();
         }
     }
 
     _openMenu() {
-        this._update_timestamp();
+        this._updateTimestamp();
         this.menu.toggle();
     }
 
@@ -74,58 +75,97 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         this.set_applet_tooltip(_("Notifications"));
 
         // Setup the notification container.
-        this._maincontainer = new St.BoxLayout({name: 'traycontainer', vertical: true});
+        this._maincontainer = new St.BoxLayout({
+            name: 'traycontainer',
+            vertical: true,
+        });
         this._notificationbin = new St.BoxLayout({vertical:true});
-        this.button_label_box = new St.BoxLayout();
 
-        // Setup the tray icon.
-        this.menu_label = new PopupMenu.PopupMenuItem(stringify(this.notifications.length));
-        this.menu_label.actor.reactive = false;
-        this.menu_label.actor.can_focus = false;
-        this.menu_label.label.add_style_class_name('popup-subtitle-menu-item');
+        const titleBox = new St.BoxLayout({ style_class: 'applet-title-box' });
+        const label = new St.Label({
+            style_class: 'title',
+            text: _("Notifications"),
+            y_align: Clutter.ActorAlign.CENTER,
+        });
+        titleBox.add_child(label);
+        const spacer = new St.BoxLayout({ x_expand: true });
+        titleBox.add_child(spacer);
+        const icon = new St.Icon ({
+            icon_name: 'xsi-preferences-symbolic',
+            icon_type: St.IconType.SYMBOLIC,
+        });
+        const settingsButton = new St.Button({
+            style_class: 'icon-button',
+            can_focus: true,
+        });
+        settingsButton.child = icon;
+        settingsButton.connect('clicked', () => {
+            Util.spawnCommandLine("cinnamon-settings notifications");
+            this.menu.close();
+        });
+        titleBox.add_child(settingsButton);
+        this.menu.box.add_child(titleBox);
 
-        this.clear_separator = new PopupMenu.PopupSeparatorMenuItem();
+        this.placeHolder = new Placeholder.Placeholder({
+            icon_name: 'xsi-notifications-disabled-symbolic',
+            title: _("No Notifications"),
+        });
+        this.menu.box.add_child(this.placeHolder);
 
-        this.clear_action = new PopupMenu.PopupMenuItem(_("Clear notifications"));
-        this.clear_action.connect('activate', Lang.bind(this, this._clear_all));
-        this.clear_action.actor.hide();
+        this.clearBox = new St.BoxLayout({
+            style_class: 'clear-notification-box',
+            x_align: Clutter.ActorAlign.END,
+        });
+        const button = new St.Button({
+            style_class: 'button',
+            label: _("Clear"),
+            can_focus: true,
+        });
+        button.connect('clicked', this._clearAll.bind(this));
+        this.clearBox.add_child(button);
 
-        if (this._orientation == St.Side.BOTTOM) {
-            this.menu.addMenuItem(this.menu_label);
-            this.menu.addActor(this._maincontainer);
-            this.menu.addMenuItem(this.clear_separator);
-            this.menu.addMenuItem(this.clear_action);
-        } else {
-            this.menu.addMenuItem(this.clear_action);
-            this.menu.addMenuItem(this.clear_separator);
-            this.menu.addMenuItem(this.menu_label);
-            this.menu.addActor(this._maincontainer);
-        }
+        this.menu.addActor(this._maincontainer);
+        this.menu.addActor(this.clearBox);
 
-        this.scrollview = new St.ScrollView({ x_fill: true, y_fill: true, y_align: St.Align.START, style_class: "vfade"});
+        this.scrollview = new St.ScrollView({
+            x_fill: true,
+            y_fill: true,
+            y_align: St.Align.START,
+            style_class: "vfade",
+        });
         this._maincontainer.add(this.scrollview);
         this.scrollview.add_actor(this._notificationbin);
         this.scrollview.set_policy(St.PolicyType.NEVER, St.PolicyType.AUTOMATIC);
         this.scrollview.set_clip_to_allocation(true);
 
         let vscroll = this.scrollview.get_vscroll_bar();
-        vscroll.connect('scroll-start', Lang.bind(this, function() {
+        vscroll.connect('scroll-start', () => {
             this.menu.passEvents = true;
-        }));
-        vscroll.connect('scroll-stop', Lang.bind(this, function() {
+        });
+        vscroll.connect('scroll-stop', () => {
             this.menu.passEvents = false;
-        }));
+        });
 
         // Alternative tray icons.
-        this._crit_icon = new St.Icon({icon_name: 'critical-notif', icon_type: St.IconType.SYMBOLIC, reactive: true, track_hover: true, style_class: 'system-status-icon' });
-        this._alt_crit_icon = new St.Icon({icon_name: 'alt-critical-notif', icon_type: St.IconType.SYMBOLIC, reactive: true, track_hover: true, style_class: 'system-status-icon' });
+        this._critIcon = new St.Icon({
+            icon_name: 'critical-notif-symbolic',
+            icon_type: St.IconType.SYMBOLIC,
+            reactive: true,
+            track_hover: true,
+            style_class: 'system-status-icon',
+        });
+        this._altCritIcon = new St.Icon({
+            icon_name: 'alt-critical-notif-symbolic',
+            icon_type: St.IconType.SYMBOLIC,
+            reactive: true,
+            track_hover: true,
+            style_class: 'system-status-icon',
+        });
 
         this._on_panel_edit_mode_changed();
-
-        this.menu.addSettingsAction(_("Notification Settings"), 'notifications');
     }
 
-    _notification_added (mtray, notification) { // Notification event handler.
+    _notificationAdded (mtray, notification) { // Notification event handler.
         // Ignore transient notifications?
         if (this.ignoreTransientNotifications && notification.isTransient) {
             notification.destroy();
@@ -133,16 +173,16 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         }
 
         notification.actor.unparent();
-        let existing_index = this.notifications.indexOf(notification);
-        if (existing_index != -1) { // This notification is already listed.
+        let existingIndex = this.notifications.indexOf(notification);
+        if (existingIndex != -1) { // This notification is already listed.
             if (notification._destroyed) {
-                this.notifications.splice(existing_index, 1);
+                this.notifications.splice(existingIndex, 1);
             } else {
                 notification._inNotificationBin = true;
                 global.reparentActor(notification.actor, this._notificationbin);
                 notification._timeLabel.show();
             }
-            this.update_list();
+            this.updateList();
             return;
         } else if (notification._destroyed) {
             return;
@@ -155,34 +195,37 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         notification.actor._parent_container = this._notificationbin;
         notification.actor.add_style_class_name('notification-applet-padding');
         // Register for destruction.
-        notification.connect('scrolling-changed', (notif, scrolling) => { this.menu.passEvents = scrolling });
+        notification.connect('scrolling-changed', (notif, scrolling) => {
+            this.menu.passEvents = scrolling
+        });
         notification.connect('destroy', () => {
             let i = this.notifications.indexOf(notification);
             if (i != -1)
                 this.notifications.splice(i, 1);
-            this.update_list();
+            this.updateList();
         });
         notification._timeLabel.show();
 
-        this.update_list();
+        this.updateList();
     }
 
-    update_list () {
+    updateList () {
         try {
             let count = this.notifications.length;
             if (count > 0) {    // There are notifications.
                 this.actor.show();
-                this.clear_action.actor.show();
+                this.placeHolder.hide();
+                this.clearBox.show();
                 this.set_applet_label(count.toString());
                 this._reorderNotifications();
                 // Find max urgency and derive list icon.
-                let max_urgency = -1;
+                let maxUrgency = -1;
                 for (let i = 0; i < count; i++) {
-                    let cur_urgency = this.notifications[i].urgency;
-                    if (cur_urgency > max_urgency)
-                        max_urgency = cur_urgency;
+                    let curUrgency = this.notifications[i].urgency;
+                    if (curUrgency > maxUrgency)
+                        maxUrgency = curUrgency;
                 }
-                switch (max_urgency) {
+                switch (maxUrgency) {
                     case Urgency.LOW:
                         this._blinking = false;
                         this.set_applet_icon_symbolic_name("low-notif");
@@ -195,7 +238,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
                     case Urgency.CRITICAL:
                         if (!this._blinking) {
                             this._blinking = true;
-                            this.critical_blink();
+                            this.criticalBlink();
                         }
                         break;
                 }
@@ -203,7 +246,8 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
                 this._blinking = false;
                 this.set_applet_label('');
                 this.set_applet_icon_symbolic_name("empty-notif");
-                this.clear_action.actor.hide();
+                this.placeHolder.show();
+                this.clearBox.hide();
                 if (!this.showEmptyTray) {
                     this.actor.hide();
                 }
@@ -211,9 +255,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
 
             if (!this.showNotificationCount) {  // Don't show notification count
                 this.set_applet_label('');
-                // this.clear_action.actor.hide();
             }
-            this.menu_label.label.set_text(stringify(count));
             this._notificationbin.queue_relayout();
         }
         catch (e) {
@@ -221,7 +263,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         }
     }
 
-    _clear_all() {
+    _clearAll() {
         let count = this.notifications.length;
         if (count > 0) {
             for (let i = count-1; i >=0; i--) {
@@ -230,7 +272,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
             }
         }
         this.notifications = [];
-        this.update_list();
+        this.updateList();
     }
 
     _reorderNotifications() {
@@ -252,7 +294,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         }
     }
 
-    _show_hide_tray() { // Show or hide the notification tray.
+    _showHideTray() { // Show or hide the notification tray.
         if(!global.settings.get_boolean(PANEL_EDIT_MODE_KEY)) {
             if (this.notifications.length || this.showEmptyTray) {
                 this.actor.show();
@@ -266,7 +308,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         if (global.settings.get_boolean(PANEL_EDIT_MODE_KEY)) {
             this.actor.show();
         } else {
-            this.update_list();
+            this.updateList();
         }
     }
 
@@ -283,6 +325,7 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         }
         this.menu = new Applet.AppletPopupMenu(this, orientation);
         this.menuManager.addMenu(this.menu);
+        this.menu.setCustomStyleClass('notification-applet');
         this._display();
     }
 
@@ -290,31 +333,27 @@ class CinnamonNotificationsApplet extends Applet.TextIconApplet {
         this._openMenu();
     }
 
-    on_btn_open_system_settings_clicked() {
-        Util.spawnCommandLine("cinnamon-settings notifications");
-    }
-
-    _update_timestamp() {
+    _updateTimestamp() {
         let len = this.notifications.length;
         if (len > 0) {
             for (let i = 0; i < len; i++) {
                 let notification = this.notifications[i];
-                let orig_time = notification._timestamp;
-                notification._timeLabel.clutter_text.set_markup(timeify(orig_time));
+                let origTime = notification._timestamp;
+                notification._timeLabel.clutter_text.set_markup(timeify(origTime));
             }
         }
     }
 
-    critical_blink () {
+    criticalBlink () {
         if (!this._blinking)
             return;
-        if (this._blink_toggle) {
-            this._applet_icon_box.child = this._crit_icon;
+        if (this._blinkToggle) {
+            this._applet_icon_box.child = this._critIcon;
         } else {
-            this._applet_icon_box.child = this._alt_crit_icon;
+            this._applet_icon_box.child = this._altCritIcon;
         }
-        this._blink_toggle = !this._blink_toggle;
-        Mainloop.timeout_add_seconds(1, Lang.bind(this, this.critical_blink));
+        this._blinkToggle = !this._blinkToggle;
+        Mainloop.timeout_add_seconds(1, this.criticalBlink.bind(this));
     }
 }
 
@@ -332,11 +371,11 @@ function stringify(count) {
 
 function timeify(orig_time) {
     let settings = new Gio.Settings({schema_id: 'org.cinnamon.desktop.interface'});
-    let use_24h = settings.get_boolean('clock-use-24h');
+    let use24h = settings.get_boolean('clock-use-24h');
     let now = new Date();
     let diff = Math.floor((now.getTime() - orig_time.getTime()) / 1000); // get diff in seconds
     let str;
-    if (use_24h) {
+    if (use24h) {
         str = orig_time.toLocaleFormat('%x, %T');
     } else {
         str = orig_time.toLocaleFormat('%x, %r');
@@ -349,8 +388,8 @@ function timeify(orig_time) {
             str += " (" + ngettext("%d second ago", "%d seconds ago", diff).format(diff) + ")";
             break;
         } case (diff > 59 && diff <= 3540): {
-            let diff_minutes = Math.floor(diff / 60);
-            str += " (" + ngettext("%d minute ago", "%d minutes ago", diff_minutes).format(diff_minutes) + ")";
+            let diffMinutes = Math.floor(diff / 60);
+            str += " (" + ngettext("%d minute ago", "%d minutes ago", diffMinutes).format(diffMinutes) + ")";
             break;
         }
     }

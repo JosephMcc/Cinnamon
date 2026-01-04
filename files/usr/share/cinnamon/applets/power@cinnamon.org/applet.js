@@ -445,11 +445,8 @@ class ProfilesLayout extends St.BoxLayout {
 
         const button = new St.Button({
             style_class: 'icon-button',
-<<<<<<< HEAD
-            can_focus: true,
-=======
->>>>>>> panel-context-menu
             toggle_mode: true,
+            can_focus: true,
             checked: checked,
         });
         button.set_x_align(Clutter.ActorAlign.CENTER);

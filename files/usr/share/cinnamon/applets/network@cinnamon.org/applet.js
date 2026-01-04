@@ -1,4 +1,5 @@
 const Applet = imports.ui.applet;
+const Clutter = imports.gi.Clutter;
 const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 const GObject = imports.gi.GObject;
@@ -43,7 +44,7 @@ const NM80211ApSecurityFlags = NM['80211ApSecurityFlags'];
 
 // number of wireless networks that should be visible
 // (the remaining are placed into More...)
-const NUM_VISIBLE_NETWORKS = 5;
+const NUM_VISIBLE_NETWORKS = 1;
 
 var NMIface = '\
 <node> \
@@ -112,8 +113,17 @@ NMNetworkMenuItem.prototype = {
             title = ssidToLabel(ssid);
         }
 
+        const vbox = new St.BoxLayout({ vertical: true });
         this._label = new St.Label({ text: title });
-        this.addActor(this._label);
+        // this.addActor(this._label);
+        vbox.add_child(this._label);
+        this._statusLabel = new St.Label({
+            text: _("Connected"),
+            style_class: 'status-label',
+            visible: false,
+        });
+        vbox.add_child(this._statusLabel);
+        this.addActor(vbox);
         let strStrengh = String(this.bestAP.strength);
         strStrengh = strStrengh + '%';
         this._labelStrength = new St.Label({ text: strStrengh });
@@ -178,6 +188,13 @@ NMNetworkMenuItem.prototype = {
         }
     },
 
+    setShowDot: function(show) {
+        if (show)
+            this._statusLabel.visible = true;
+        else
+            this._statusLabel.visible = false;
+    },
+
     destroy: function() {
         for (let i = 0; i < this._accessPoints.length; i++) {
             let apObj = this._accessPoints[i];
@@ -189,34 +206,59 @@ NMNetworkMenuItem.prototype = {
     }
 };
 
-function NMWiredSectionTitleMenuItem() {
-    this._init.apply(this, arguments);
-}
+var NMWiredSectionTitleMenuItem = class NMWiredSectionTitleMenuItem extends PopupMenu.PopupBaseMenuItem {
+    _init(label, params) {
+        super._init.call(this, params)
 
-NMWiredSectionTitleMenuItem.prototype = {
-    __proto__: PopupMenu.PopupSwitchMenuItem.prototype,
-
-    _init: function(label, params) {
         params = params || { };
-        params.style_class = 'popup-subtitle-menu-item';
-        PopupMenu.PopupSwitchMenuItem.prototype._init.call(this, label, false, params);
-    },
 
-    updateForDevice: function(device) {
-        if (device) {
-            this._device = device;
-            this.setStatus(device.statusLabel);
-            this.setToggleState(device.connected);
-            // if this device is not controllable, hide the switch
-            this._switch.actor.visible = device.controllable;
+        this.vbox = new St.BoxLayout({ vertical: true });
+        this.addActor(this.vbox);
+
+        this.label = new St.Label({
+            text: label,
+            style_class: 'status-heading',
+        });
+        this._statusLabel = new St.Label({
+            text: '',
+            style_class: 'status-label',
+            visible: false,
+        });
+
+        this.actor.label_actor = this.label;
+
+        this._switch = new PopupMenu.Switch(false);
+
+        this.vbox.add_child(this.label);
+        this.vbox.add_child(this._statusLabel);
+
+        this._statusBin = new St.Bin({ x_align: St.Align.END });
+        this.addActor(this._statusBin, { expand: true, span: -1, align: St.Align.END });
+        this._statusBin.child = this._switch.actor;
+        // this.label = new St.Label({ text: label });
+        // this.vbox.add_child(this.label);
+        // this.removeActor(this.label);
+        // this.vbox.add_child(this.label);
+        // this.removeActor(this._statusLabel);
+        // this.vbox.add_child(this._statusLabel);
+
+        // this.addActor(this.vbox);
+    }
+
+    setStatus(text) {
+        if (text != null) {
+            this._statusLabel.set_text(text);
+            this._statusLabel.visible = true;
         } else {
-            this.setStatus('');
-            this._switch.actor.visible = false;
+            this._statusLabel.set_text('');
+            this._statusLabel.visible = false;
         }
-    },
+    }
 
-    activate: function(event) {
-        PopupMenu.PopupSwitchMenuItem.prototype.activate.call(this, event);
+    activate(event) {
+        if (this._switch.actor.mapped) {
+            this.toggle();
+        }
 
         if (!this._device) {
             log('Section title activated when there is more than one device, should be non reactive');
@@ -234,49 +276,156 @@ NMWiredSectionTitleMenuItem.prototype = {
             this._device.activate();
         else
             this._device.deactivate();
-    }
-};
 
-function NMWirelessSectionTitleMenuItem() {
-    this._init.apply(this, arguments);
+        PopupBaseMenuItem.prototype.activate.call(this, event, true);
+    }
+
+    toggle() {
+        this._switch.toggle();
+        this.emit('toggled', this._switch.state);
+    }
+
+    get state() {
+        return this._switch.state;
+    }
+
+    setToggleState(state) {
+        this._switch.setToggleState(state);
+    }
+
+    updateForDevice(device) {
+        if (device) {
+            this._device = device;
+            this.setStatus(device.statusLabel);
+            this.setToggleState(device.connected);
+            // if this device is not controllable, hide the switch
+            this._switch.actor.visible = device.controllable;
+        } else {
+            this.setStatus('');
+            this._switch.actor.visible = false;
+        }
+    }
 }
 
-NMWirelessSectionTitleMenuItem.prototype = {
-    __proto__: PopupMenu.PopupSwitchMenuItem.prototype,
+// function NMWiredSectionTitleMenuItem() {
+//     this._init.apply(this, arguments);
+// }
 
-    _init: function(client, property, title, params) {
+// NMWiredSectionTitleMenuItem.prototype = {
+//     __proto__: PopupMenu.PopupSwitchMenuItem.prototype,
+
+//     _init: function(label, params) {
+//         params = params || { };
+//         params.style_class = 'popup-subtitle-menu-item';
+//         PopupMenu.PopupSwitchMenuItem.prototype._init.call(this, label, false, params);
+//     },
+
+//     updateForDevice: function(device) {
+//         if (device) {
+//             this._device = device;
+//             this.setStatus(device.statusLabel);
+//             this.setToggleState(device.connected);
+//             // if this device is not controllable, hide the switch
+//             this._switch.actor.visible = device.controllable;
+//         } else {
+//             this.setStatus('');
+//             this._switch.actor.visible = false;
+//         }
+//     },
+
+//     activate: function(event) {
+//         PopupMenu.PopupSwitchMenuItem.prototype.activate.call(this, event);
+
+//         if (!this._device) {
+//             log('Section title activated when there is more than one device, should be non reactive');
+//             return;
+//         }
+
+//         let newState = this._switch.state;
+
+//         // Immediately reset the switch to false, it will be updated appropriately
+//         // by state-changed signals in devices (but fixes the VPN not being in sync
+//         // if the ActiveConnection object is never seen by libnm-glib)
+//         this._switch.setToggleState(false);
+
+//         if (newState)
+//             this._device.activate();
+//         else
+//             this._device.deactivate();
+//     }
+// };
+
+var NMWirelessSectionTitleMenuItem = class NMWirelessSectionTitleMenuItem extends PopupMenu.PopupBaseMenuItem {
+    _init(client, property, title, params) {
+        super._init.call(this, params)
+
         params = params || { };
-        params.style_class = 'popup-subtitle-menu-item';
-        PopupMenu.PopupSwitchMenuItem.prototype._init.call(this, title, false, params);
 
         this._client = client;
         this._property = property + '_enabled';
         this._propertyHardware = property + '_hardware_enabled';
         this._setEnabledFunc = property + '_set_enabled';
 
-        this._client.connect('notify::' + property + '-enabled', Lang.bind(this, this._propertyChanged));
-        this._client.connect('notify::' + property + '-hardware-enabled', Lang.bind(this, this._propertyChanged));
+        // this._client.connect('notify::' + property + '-enabled', Lang.bind(this, this._propertyChanged));
+        // this._client.connect('notify::' + property + '-hardware-enabled', Lang.bind(this, this._propertyChanged));
+
+        // this._propertyChanged();
+
+        this.vbox = new St.BoxLayout({ vertical: true });
+        this.addActor(this.vbox);
+
+        this.label = new St.Label({
+            text: title,
+            style_class: 'status-heading',
+        });
+        this._statusLabel = new St.Label({
+            text: '',
+            style_class: 'status-label',
+            visible: false,
+        });
+
+        this.actor.label_actor = this.label;
+
+        this._switch = new PopupMenu.Switch(false);
+
+        this.vbox.add_child(this.label);
+        this.vbox.add_child(this._statusLabel);
+
+        this._statusBin = new St.Bin({ x_align: St.Align.END });
+        this.addActor(this._statusBin, {
+            expand: true,
+            span: -1,
+            align: St.Align.END,
+        });
+        this._statusBin.child = this._switch.actor;
+        // this.label = new St.Label({ text: label });
+        // this.vbox.add_child(this.label);
+        // this.removeActor(this.label);
+        // this.vbox.add_child(this.label);
+        // this.removeActor(this._statusLabel);
+        // this.vbox.add_child(this._statusLabel);
+
+        // this.addActor(this.vbox);
+        this._client.connect('notify::' + property + '-enabled', this._propertyChanged.bind(this));
+        this._client.connect('notify::' + property + '-hardware-enabled', this._propertyChanged.bind(this));
 
         this._propertyChanged();
-    },
+    }
 
-    updateForDevice: function(device) {
-        this._device = device;
-        // we show the switch
-        // - if there not just one device
-        // - if the switch is off
-        // - if the device is activated or disconnected
-        if (device && this._softwareEnabled && this._hardwareEnabled) {
-            this.setStatus(device.statusLabel);
-            this._switch.actor.visible = device.controllable;
+    setStatus(text) {
+        if (text != null) {
+            this._statusLabel.set_text(text);
+            this._statusLabel.visible = true;
         } else {
-            this.setStatus(null);
-            this._switch.actor.show();
+            this._statusLabel.set_text('');
+            this._statusLabel.visible = false;
         }
-    },
+    }
 
-    activate: function(event) {
-        PopupMenu.PopupSwitchMenuItem.prototype.activate.call(this, event);
+    activate(event) {
+        if (this._switch.actor.mapped) {
+            this.toggle();
+        }
 
         this._client[this._setEnabledFunc](this._switch.state);
 
@@ -293,9 +442,39 @@ NMWirelessSectionTitleMenuItem.prototype = {
             this._device.deactivate();
 
         this.emit('enabled-changed', this._switch.state);
-    },
 
-    _propertyChanged: function() {
+        PopupBaseMenuItem.prototype.activate.call(this, event, true);
+    }
+
+    toggle() {
+        this._switch.toggle();
+        this.emit('toggled', this._switch.state);
+    }
+
+    get state() {
+        return this._switch.state;
+    }
+
+    setToggleState(state) {
+        this._switch.setToggleState(state);
+    }
+
+    updateForDevice(device) {
+        this._device = device;
+        // we show the switch
+        // - if there not just one device
+        // - if the switch is off
+        // - if the device is activated or disconnected
+        if (device && this._softwareEnabled && this._hardwareEnabled) {
+            this.setStatus(device.statusLabel);
+            this._switch.actor.visible = device.controllable;
+        } else {
+            this.setStatus(null);
+            this._switch.actor.show();
+        }
+    }
+
+    _propertyChanged() {
         this._softwareEnabled = this._client[this._property];
         this._hardwareEnabled = this._client[this._propertyHardware];
 
@@ -307,7 +486,79 @@ NMWirelessSectionTitleMenuItem.prototype = {
 
         this.emit('enabled-changed', enabled);
     }
-};
+}
+
+// function NMWirelessSectionTitleMenuItem() {
+//     this._init.apply(this, arguments);
+// }
+
+// NMWirelessSectionTitleMenuItem.prototype = {
+//     __proto__: PopupMenu.PopupSwitchMenuItem.prototype,
+
+//     _init: function(client, property, title, params) {
+//         params = params || { };
+//         params.style_class = 'popup-subtitle-menu-item';
+//         PopupMenu.PopupSwitchMenuItem.prototype._init.call(this, title, false, params);
+
+//         this._client = client;
+//         this._property = property + '_enabled';
+//         this._propertyHardware = property + '_hardware_enabled';
+//         this._setEnabledFunc = property + '_set_enabled';
+
+//         this._client.connect('notify::' + property + '-enabled', Lang.bind(this, this._propertyChanged));
+//         this._client.connect('notify::' + property + '-hardware-enabled', Lang.bind(this, this._propertyChanged));
+
+//         this._propertyChanged();
+//     },
+
+//     updateForDevice: function(device) {
+//         this._device = device;
+//         // we show the switch
+//         // - if there not just one device
+//         // - if the switch is off
+//         // - if the device is activated or disconnected
+//         if (device && this._softwareEnabled && this._hardwareEnabled) {
+//             this.setStatus(device.statusLabel);
+//             this._switch.actor.visible = device.controllable;
+//         } else {
+//             this.setStatus(null);
+//             this._switch.actor.show();
+//         }
+//     },
+
+//     activate: function(event) {
+//         PopupMenu.PopupSwitchMenuItem.prototype.activate.call(this, event);
+
+//         this._client[this._setEnabledFunc](this._switch.state);
+
+//         if (!this._device) {
+//             log('Section title activated when there is more than one device, should be non reactive');
+//             return;
+//         }
+
+//         let newState = this._switch.state;
+
+//         if (newState)
+//             this._device.activate();
+//         else
+//             this._device.deactivate();
+
+//         this.emit('enabled-changed', this._switch.state);
+//     },
+
+//     _propertyChanged: function() {
+//         this._softwareEnabled = this._client[this._property];
+//         this._hardwareEnabled = this._client[this._propertyHardware];
+
+//         let enabled = this._softwareEnabled && this._hardwareEnabled;
+//         this.setToggleState(enabled);
+//         if (!this._hardwareEnabled)
+//             /* Translators: this indicates that wireless or wwan is disabled by hardware killswitch */
+//             this.setStatus(_("disabled"));
+
+//         this.emit('enabled-changed', enabled);
+//     }
+// };
 
 function NMDevice() {
     throw new TypeError('Instantanting abstract class NMDevice');
@@ -652,6 +903,7 @@ NMDevice.prototype = {
         this._activeConnectionItem = new PopupMenu.PopupMenuItem(title, { reactive: false });
         this._activeConnectionItem.setShowDot(true);
         this._activeConnectionItem.actor.add_style_class_name('popup-device-menu-item');
+        // this._activeConnectionItem.actor.add_style_class_name('active-item');
     },
 
     _deviceStateChanged: function(device, newstate, oldstate, reason) {
@@ -1665,7 +1917,8 @@ NMDeviceWireless.prototype = {
                                                                               { reactive: false });
         }
         this._activeConnectionItem.setShowDot(true);
-        this._activeConnectionItem.actor.add_style_class_name('popup-device-menu-item');
+        // this._activeConnectionItem.actor.add_style_class_name('popup-device-menu-item');
+        this._activeConnectionItem.actor.add_style_class_name('active-item');
     },
 
     _createAutomaticConnection: function(apObj) {
@@ -1742,7 +1995,7 @@ NMDeviceWireless.prototype = {
             this.section.addMenuItem(apObj.item, position);
         } else {
             if (!this._overflowItem) {
-                this._overflowItem = new PopupMenu.PopupSubMenuMenuItem(_("More"));
+                this._overflowItem = new PopupMenu.PopupSubMenuMenuItem(_("Available Networks"));
                 this.section.addMenuItem(this._overflowItem);
             }
             this._overflowItem.menu.addMenuItem(apObj.item, position - NUM_VISIBLE_NETWORKS);
@@ -1808,7 +2061,51 @@ CinnamonNetworkApplet.prototype = {
 
             this.menuManager = new PopupMenu.PopupMenuManager(this);
             this.menu = new Applet.AppletPopupMenu(this, orientation);
+            this.menu.setCustomStyleClass('network-applet');
             this.menuManager.addMenu(this.menu);
+
+            const titleBox = new St.BoxLayout({ style_class: 'applet-title-box' });
+            const label = new St.Label({
+                style_class: 'title',
+                text: _("Networks"),
+                y_align: Clutter.ActorAlign.CENTER,
+            });
+            titleBox.add_child(label);
+
+            const spacer = new St.BoxLayout({ x_expand: true });
+            titleBox.add_child(spacer);
+
+            const connectionsIcon = new St.Icon ({
+                icon_name: 'xsi-applications-utilities-symbolic',
+                icon_type: St.IconType.SYMBOLIC,
+            });
+            const connectionsButton = new St.Button({
+                style_class: 'icon-button',
+                can_focus: true,
+            });
+            connectionsButton.child = connectionsIcon;
+            connectionsButton.connect('clicked', () => {
+                Util.spawnCommandLine("nm-connection-editor");
+                this.menu.close();
+            });
+            titleBox.add_child(connectionsButton);
+
+            const settingsIcon = new St.Icon ({
+                icon_name: 'xsi-preferences-symbolic',
+                icon_type: St.IconType.SYMBOLIC,
+            });
+            const settingsButton = new St.Button({
+                style_class: 'icon-button',
+                can_focus: true,
+            });
+            settingsButton.child = settingsIcon;
+            settingsButton.connect('clicked', () => {
+                Util.spawnCommandLine("cinnamon-settings network");
+                this.menu.close();
+            });
+            titleBox.add_child(settingsButton);
+
+            this.menu.box.add_child(titleBox);
 
             this._currentIconName = undefined;
             this._setIcon('xsi-network-offline');
@@ -1817,7 +2114,7 @@ CinnamonNetworkApplet.prototype = {
             this.settings.bind("keyOpen", "keyOpen", this._setKeybinding);
             this._setKeybinding();
 
-            NM.Client.new_async(null, Lang.bind(this, this._clientGot));
+            NM.Client.new_async(null, this._clientGot.bind(this));
         }
         catch (e) {
             global.logError(e);
@@ -1836,20 +2133,21 @@ CinnamonNetworkApplet.prototype = {
             this._nm_proxy = null;
 
             if (!this._v1_28_0) {
-                new NMDBus(Lang.bind(this, function(proxy, error) {
+                new NMDBus((proxy, error) => {
                     this._nm_proxy = proxy;
-                }));
+                });
             }
 
             this._statusSection = new PopupMenu.PopupMenuSection();
             this._statusItem = new PopupMenu.PopupMenuItem('', { style_class: 'popup-inactive-menu-item', reactive: false });
             this._statusSection.addMenuItem(this._statusItem);
-            this._statusSection.addAction(_("Enable networking"), Lang.bind(this, function() {
+            this._statusSection.addAction(_("Enable networking"), () => {
                 this._client.networking_enabled = true;
-            }));
+            });
+            this._statusSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
             this._statusSection.actor.hide();
             this.menu.addMenuItem(this._statusSection);
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            // this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
             this._devices = { };
 
@@ -1913,11 +2211,6 @@ CinnamonNetworkApplet.prototype = {
             this._devices.wireguard.section.actor.hide();
             this.menu.addMenuItem(this._devices.wireguard.section);
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-
-            this.menu.addSettingsAction(_("Network Settings"), 'network');
-            this.menu.addAction(_("Network Connections"), Lang.bind(this, function() {
-                Util.spawnCommandLine("nm-connection-editor");
-            }));
 
             this.menu.connect("open-state-changed", Lang.bind(this, this._onMenuOpenStateChanged));
 

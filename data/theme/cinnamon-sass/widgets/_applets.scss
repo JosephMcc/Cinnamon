@@ -40,7 +40,7 @@ $applet_padding: 6px;
 
 .applet-title-box {
   padding: $base_padding $base_padding * 2;
-  spacing: $base_padding;
+  spacing: $base_padding * 1.5;
 
   .title { @extend %title_2; }
 
@@ -73,12 +73,37 @@ $applet_padding: 6px;
 
 .applet-cornerbar-box:hover > .applet-cornerbar { background-color: $lightest_bg_color; }
 
+// network applet
+
+.network-applet {
+
+  .popup-menu-item:insensitive { color: $fg_color; }
+
+  .status-heading { @extend %heading; }
+  .status-label { color: $insensitive_fg_color; }
+  // .active-item { font-weight: bold; }
+}
 
 // notification applet
 
-.notification-applet-padding {
-  padding: $base_margin 0 $base_margin $base_margin;
+.notification-applet {
+
+  .placeholder {
+    padding: 30px 60px;
+  }
+
+  .clear-notification-box {
+    padding: $base_padding;
+  }
+
+  .notification-applet-padding {
+    padding: $base_margin 0 $base_margin $base_margin;
+  }
 }
+
+// .notification-applet-padding {
+//   padding: $base_margin 0 $base_margin $base_margin;
+// }
 
 // panel launchers
 
