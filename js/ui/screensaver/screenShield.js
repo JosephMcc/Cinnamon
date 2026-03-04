@@ -22,7 +22,7 @@ const POWER_SCHEMA = 'org.cinnamon.settings-daemon.plugins.power';
 const FADE_TIME = 200;
 const MOTION_THRESHOLD = 100;
 
-const FLOAT_TIMER_INTERVAL = 30;
+const FLOAT_TIMER_INTERVAL = 5;
 const DEBUG_FLOAT = false;  // Set to true for 5-second intervals during development
 
 const MAX_SCREENSAVER_WIDGETS = 3;
@@ -168,15 +168,37 @@ var ScreenShield = GObject.registerClass({
         this.add_child(this._keyboardBox);
         this._oskVisible = false;
 
+        this._bottomButtonLayout = new St.BoxLayout();
+        this._keyboardBox.add_child(this._bottomButtonLayout);
+
         this._oskButton = new St.Button({
-            style_class: 'osk-activate-button',
+            style_class: 'icon-button',
             important: true,
             can_focus: true,
             reactive: true
         });
         this._oskButton.set_child(new St.Icon({ icon_name: 'xsi-input-keyboard-symbolic' }));
         this._oskButton.connect('clicked', this._toggleScreensaverKeyboard.bind(this));
-        this._keyboardBox.add_child(this._oskButton);
+        // this._keyboardBox.add_child(this._oskButton);
+        this._bottomButtonLayout.add_child(this._oskButton);
+
+        this._screensaverSettings = new Gio.Settings({ schema_id: 'org.cinnamon.desktop.screensaver' });
+        if (this._screensaverSettings.get_boolean('user-switch-enabled') &&
+            !Main.lockdownSettings.get_boolean('disable-user-switching')) {
+            this._switchUserButton = new St.Button({
+                style_class: 'icon-button',
+                important: true,
+                // label: _("Switch User"),
+                can_focus: true,
+                reactive: true,
+                icon_name: 'xsi-switch-user-symbolic',
+                // x_expand: true,
+                // y_expand: true
+            });
+            this._bottomButtonLayout.add_child(this._switchUserButton);
+            // this._switchUserButton.connect('clicked', this._onSwitchUser.bind(this));
+            // this._buttonLayout.add_child(this._switchUserButton);
+        }
 
         this._capturedEventId = 0;
         this._lastMotionX = -1;
@@ -761,7 +783,8 @@ var ScreenShield = GObject.registerClass({
         if (this._oskVisible)
             return;
 
-        this._oskButton.hide();
+        // this._oskButton.hide();
+        this._bottomButtonLayout.hide();
         Main.virtualKeyboardManager.openForScreensaver(this._keyboardBox, this);
         this._oskVisible = true;
         this._positionKeyboardBox();
@@ -774,7 +797,8 @@ var ScreenShield = GObject.registerClass({
 
         Main.virtualKeyboardManager.closeForScreensaver();
         this._oskVisible = false;
-        this._oskButton.show();
+        // this._oskButton.show();
+        this._bottomButtonLayout.show();
         this._positionKeyboardBox();
         this._positionUnlockDialog();
     }
@@ -799,8 +823,10 @@ var ScreenShield = GObject.registerClass({
                 keyboard.height = height;
             }
         } else {
-            let [, natWidth] = this._oskButton.get_preferred_width(-1);
-            let [, natHeight] = this._oskButton.get_preferred_height(natWidth);
+            // let [, natWidth] = this._oskButton.get_preferred_width(-1);
+            // let [, natHeight] = this._oskButton.get_preferred_height(natWidth);
+            let [, natWidth] = this._bottomButtonLayout.get_preferred_width(-1);
+            let [, natHeight] = this._bottomButtonLayout.get_preferred_height(natWidth);
             let padding = 24 * global.ui_scale;
 
             let x = monitor.x + (monitor.width - natWidth) / 2;
@@ -833,6 +859,15 @@ var ScreenShield = GObject.registerClass({
     _positionWidget(widget, monitor, position) {
         widget._isBeingPositioned = true;
 
+        // widget.opacity = 0;
+        // widget.show();
+
+        // widget.ease ({
+        //     opacity: 0,
+        //     duration: 1000,
+        //     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        // });
+
         // Divide monitor into 3x3 grid
         let sectorWidth = monitor.width / 3;
         let sectorHeight = monitor.height / 3;
@@ -862,8 +897,32 @@ var ScreenShield = GObject.registerClass({
         let x = sectorLeft + (sectorWidth - widgetWidth) / 2;
         let y = sectorTop + (sectorHeight - widgetHeight) / 2;
 
+        // widget.ease ({
+        //     opacity: 0,
+        //     duration: 400,
+        //     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        //     onComplete: () => {
+        //         widget.set_position(Math.floor(x), Math.floor(y));
+        //     }
+        // });
+
+        // widget.ease ({
+        //     opacity: 255,
+        //     duration: 400,
+        //     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        // });
+
         widget.set_position(Math.floor(x), Math.floor(y));
-        widget._isBeingPositioned = false;
+
+        widget.ease ({
+            opacity: 255,
+            duration: FADE_TIME * 2,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                widget._isBeingPositioned = false;
+            }
+        });
+        // widget._isBeingPositioned = false;
     }
 
     _scheduleWidgetLoading() {
@@ -934,7 +993,7 @@ var ScreenShield = GObject.registerClass({
             this._assignRandomPositionToWidget(widget);
             widget.applyNextPosition();
 
-            if (this._widgets.length === 0) {
+            if (this._widgets.length > 0) {
                 this._startFloatTimer();
             }
         }
@@ -1057,7 +1116,16 @@ var ScreenShield = GObject.registerClass({
             monitor = Main.layoutManager.primaryMonitor;
         }
 
-        this._positionWidget(widget, monitor, pos);
+        widget.ease({
+            opacity: 0,
+            duration: FADE_TIME,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+            onComplete: () => {
+                this._positionWidget(widget, monitor, pos);
+            }
+        });
+        // widget.opacity = 0;
+        // this._positionWidget(widget, monitor, pos);
     }
 
     _startFloatTimer() {
@@ -1068,6 +1136,8 @@ var ScreenShield = GObject.registerClass({
             return;
 
         let interval = DEBUG_FLOAT ? 5 : FLOAT_TIMER_INTERVAL;
+
+        global.log("Starting the float timer");
 
         this._floatTimerId = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT,

@@ -18,7 +18,8 @@ class ClockWidget extends ScreensaverWidget.ScreensaverWidget {
             style_class: 'clock-widget',
             vertical: true,
             x_expand: false,
-            y_expand: false
+            y_expand: false,
+            opacity: 0,
         });
 
         this.setAwakePosition(0, St.Align.START, St.Align.MIDDLE);
@@ -107,6 +108,13 @@ class ClockWidget extends ScreensaverWidget.ScreensaverWidget {
 
     onAwake() {
         this.show();
+        // this.opacity = 0;
+
+        // this.ease ({
+        //     opacity: 255,
+        //     duration: 200,
+        //     mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        // });
     }
 
     onSleep() {
