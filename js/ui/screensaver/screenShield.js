@@ -28,6 +28,9 @@ const DEBUG_FLOAT = false;  // Set to true for 5-second intervals during develop
 const MAX_SCREENSAVER_WIDGETS = 3;
 const WIDGET_LOAD_DELAY = 1000;
 
+const BLUR_BRIGHTNESS = 0.65;
+const BLUR_SIGMA = 30;
+
 var _debug = false;
 
 function _log(msg) {
@@ -135,8 +138,10 @@ var ScreenShield = GObject.registerClass({
 
         this._settings = new Gio.Settings({ schema_id: SCREENSAVER_SCHEMA });
         this._settings.connect('changed::lock-enabled', this._syncInhibitor.bind(this));
+        this._settings.connect('changed::floating-widgets', this._syncAllowFloating.bind(this));
         this._powerSettings = new Gio.Settings({ schema_id: POWER_SCHEMA });
-        this._allowFloating = this._settings.get_boolean('floating-widgets');
+
+        this._syncAllowFloating();
 
         let constraint = new Clutter.BindConstraint({
             source: global.stage,
@@ -659,6 +664,10 @@ var ScreenShield = GObject.registerClass({
             this._inhibitor.close(null);
             this._inhibitor = null;
         }
+    }
+
+    _syncAllowFloating() {
+        this._allowFloating = this._settings.get_boolean('floating-widgets');
     }
 
     _prepareForSleep(aboutToSuspend) {
@@ -1305,9 +1314,12 @@ var ScreenShield = GObject.registerClass({
             background.set_position(monitor.x, monitor.y);
             background.set_size(monitor.width, monitor.height);
 
-            let effect = new Clutter.BrightnessContrastEffect();
-            effect.set_brightness(-0.7);  // Darken by 70%
-            background.add_effect(effect);
+            // let effect = new Clutter.BrightnessContrastEffect();
+            let effect = new Cinnamon.BlurEffect({ name: 'blur' });
+            effect.brightness = BLUR_BRIGHTNESS;
+            effect.sigma = BLUR_SIGMA;
+            // background.add_effect(effect);
+            this._backgroundLayer.add_effect(effect);
 
             this._backgroundLayer.add_child(background);
 
